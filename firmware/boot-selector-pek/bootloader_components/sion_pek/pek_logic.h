@@ -9,7 +9,9 @@ enum { PEK_OTA_NEW = 0, PEK_OTA_PENDING = 1, PEK_OTA_VALID = 2, PEK_OTA_INVALID 
 #define PEK_OTA_UNDEFINED 0xffffffffu
 #define PEK_SHORT_BIT 0x08u     // AXP2101 0x49 bit3: power key short press (XPowersLib PKEY_SHORT_IRQ = _BV(11))
 #define PEK_LONG_BIT 0x04u      // AXP2101 0x49 bit2: long press (_BV(10))
-#define PEK_PRESSES_NEEDED 2u
+// One short press after power-on. (The press that powers the unit on is not reported by the
+// PMIC, so it cannot count; two presses in 1.5 s proved too hard on the device.)
+#define PEK_PRESSES_NEEDED 1u
 
 typedef struct { uint32_t seq; uint32_t state; bool valid; } pek_record_t;
 

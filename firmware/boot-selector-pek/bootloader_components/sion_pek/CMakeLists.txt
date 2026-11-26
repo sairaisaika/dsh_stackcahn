@@ -9,3 +9,6 @@ endif()
 idf_component_register(SRCS "sion_pek.c"
                        REQUIRES bootloader_support
                        PRIV_REQUIRES ${gpio_component} esp_rom soc esp_app_format log spi_flash)
+if(DEFINED ENV{SION_PEK_DIAG})
+    target_compile_definitions(${COMPONENT_LIB} PRIVATE SION_PEK_DIAG=1)
+endif()

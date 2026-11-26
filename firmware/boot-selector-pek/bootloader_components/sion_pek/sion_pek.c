@@ -2,7 +2,7 @@
 //
 // Stock ESP-IDF v5.5.4 bootloader, unchanged; this file only defines the after-init hook the
 // stock bootloader calls once before it selects a partition. On a cold power-on it gives the
-// owner about 1.5 s (charge LED blinking fast) to press the power key twice. Accepted, it
+// owner 3 s to press the power key once. Accepted, it
 // writes the same one-time "boot ota_0" OTA record that scripts/enter_dsh.py and the reviewed
 // trial install write, after checking the partition table, the factory record and the DSH
 // image; then the stock selection continues and starts DSH once. Anything unexpected: write
@@ -35,8 +35,9 @@ enum {
     SDA = 12, SCL = 11,                 // CoreS3 internal I2C (stock hal/board/config.h)
     AXP = 0x34,                         // AXP2101
     REG_ID = 0x03, ID_AXP2101 = 0x4A,
-    REG_PEK_STATUS = 0x49, REG_CHGLED = 0x69,
-    WINDOW_MS = 1500, POLL_MS = 10, HALF_US = 5,
+    REG_PEK_STATUS = 0x49, REG_PEK_ENABLE = 0x41, REG_CHGLED = 0x69,
+    WINDOW_MS = 3000,
+    POLL_MS = 10, HALF_US = 5,
     OTADATA = 0xd000, SECTOR = 0x1000, OTA0 = 0x20000, OTA0_SIZE = 0x4f0000,
 };
 // --- Bit-banged I2C, open drain: a line is released (pulled up on the board) or driven low.
@@ -81,6 +82,33 @@ static bool reg_write(uint8_t reg, uint8_t value)
     return ok;
 }
 
+#if SION_PEK_DIAG
+// Diagnostic build only: one record per boot in the unallocated sector 0x1F000 (between
+// phy_init and ota_0), read back from download mode with esptool read-flash.
+#define DIAG_SECTOR 0x1F000
+typedef struct {
+    uint32_t magic, boots, reset_reason, window_ms;
+    uint8_t id_ok, id, led, status_or, presses, longs, first_status, accepted;
+    uint16_t polls_ok, polls;
+    uint8_t inten2, pad[5];
+} pek_diag_t;
+static pek_diag_t diag;
+static void diag_save(void)
+{
+    pek_diag_t old = {0};
+    const void *p = bootloader_mmap(DIAG_SECTOR, sizeof old);
+    if (p) { memcpy(&old, p, sizeof old); bootloader_munmap(p); }
+    diag.magic = 0x444b4550;  // "PEKD"
+    diag.boots = old.magic == diag.magic ? old.boots + 1 : 1;
+    diag.window_ms = WINDOW_MS;
+    if (bootloader_flash_erase_sector(DIAG_SECTOR / SECTOR) == ESP_OK)
+        bootloader_flash_write(DIAG_SECTOR, &diag, sizeof diag, false);
+}
+#define DIAG(stmt) do { stmt; } while (0)
+#else
+#define DIAG(stmt) do { } while (0)
+#endif
+
 // Not inlined: the QEMU check (scripts/audit_pek_selector_qemu.py) returns 1 from it under gdb.
 static __attribute__((noinline)) bool read_gesture(void)
 {
@@ -94,19 +122,33 @@ static __attribute__((noinline)) bool read_gesture(void)
     esp_rom_delay_us(100);
     bool accepted = false;
     uint8_t id = 0, led = 0, status = 0;
-    if (!reg_read(REG_ID, &id) || id != ID_AXP2101 || !reg_read(REG_CHGLED, &led)) goto restore;
-    reg_write(REG_CHGLED, (uint8_t)((led & 0xC8) | 0x05 | (2 << 4)));    // manual, blink 4 Hz
-    if (reg_read(REG_PEK_STATUS, &status) && (status & (PEK_SHORT_BIT | PEK_LONG_BIT)))
+    const bool id_ok = reg_read(REG_ID, &id);
+    DIAG(diag.id_ok = id_ok; diag.id = id);
+    if (!id_ok || id != ID_AXP2101 || !reg_read(REG_CHGLED, &led)) goto restore;
+    DIAG(diag.led = led);
+    // Make sure the power-key events are enabled for the window (0x41 bits 0-3: rising, falling,
+    // long, short; Sion's reads 0xFC, short and long already on) and put the register back after.
+    uint8_t inten2 = 0;
+    const bool have_inten = reg_read(REG_PEK_ENABLE, &inten2);
+    DIAG(diag.inten2 = inten2);
+    if (have_inten) reg_write(REG_PEK_ENABLE, inten2 | 0x0F);
+    if (reg_read(REG_PEK_STATUS, &status)) DIAG(diag.first_status = status);
+    if (status & (PEK_SHORT_BIT | PEK_LONG_BIT))
         reg_write(REG_PEK_STATUS, status & (PEK_SHORT_BIT | PEK_LONG_BIT));   // forget earlier presses
-    unsigned presses = 0;
-    for (unsigned t = 0; t < WINDOW_MS / POLL_MS && presses < PEK_PRESSES_NEEDED; ++t) {
+    unsigned presses = 0, longs = 0;
+    for (unsigned t = 0; t < WINDOW_MS / POLL_MS && presses < PEK_PRESSES_NEEDED && !longs; ++t) {
         esp_rom_delay_us(POLL_MS * 1000);
+        DIAG(diag.polls++);
         if (!reg_read(REG_PEK_STATUS, &status)) continue;
+        DIAG(diag.polls_ok++; diag.status_or |= status);
+        if (status & PEK_LONG_BIT) ++longs;
         const uint8_t clear = pek_poll(status, &presses);
         if (clear) reg_write(REG_PEK_STATUS, clear);
     }
-    accepted = presses >= PEK_PRESSES_NEEDED;
-    reg_write(REG_CHGLED, led);
+    // Two short presses, or one press held past the PMIC's long-press time.
+    accepted = presses >= PEK_PRESSES_NEEDED || longs > 0;
+    if (have_inten) reg_write(REG_PEK_ENABLE, inten2);
+    DIAG(diag.presses = presses; diag.longs = longs; diag.accepted = accepted);
 restore:
     for (int pin = SCL; pin <= SDA; ++pin) { gpio_ll_output_disable(&GPIO, pin); gpio_ll_od_disable(&GPIO, pin); }
     REG_WRITE(IO_MUX_GPIO12_REG, mux_sda);
@@ -187,6 +229,15 @@ static void select_dsh_once(void)
 
 void bootloader_after_init(void)
 {
-    if (esp_rom_get_reset_reason(0) != RESET_REASON_CHIP_POWER_ON) return;
+    const soc_reset_reason_t reason = esp_rom_get_reset_reason(0);
+#if SION_PEK_DIAG
+    // Diagnostic build: look at every boot and record what happened.
+    diag.reset_reason = reason;
+    const bool accepted = read_gesture();
+    diag_save();
+    if (accepted) select_dsh_once();
+#else
+    if (reason != RESET_REASON_CHIP_POWER_ON) return;
     if (read_gesture()) select_dsh_once();
+#endif
 }

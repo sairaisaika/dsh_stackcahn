@@ -26,8 +26,7 @@ int main(void)
     assert(pek_poll(0x00, &presses) == 0 && presses == 0);
     assert(pek_poll(0x03, &presses) == 0 && presses == 0);                 // edges only: not a press
     assert(pek_poll(0x04, &presses) == 0x04 && presses == 0);              // long press: cleared, not counted
-    assert(pek_poll(0x0B, &presses) == 0x08 && presses == 1);
-    assert(pek_poll(0x08, &presses) == 0x08 && presses == 2 && presses >= PEK_PRESSES_NEEDED);
+    assert(pek_poll(0x0B, &presses) == 0x08 && presses == 1 && presses >= PEK_PRESSES_NEEDED);   // one press is enough
 
     assert(pek_version_is_dsh("dsh-agent-v76-direct-frames-ota", 32));
     assert(!pek_version_is_dsh("1b7145c", 32) && !pek_version_is_dsh("1.6.2", 32) && !pek_version_is_dsh("dsh-agen", 8));

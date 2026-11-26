@@ -65,6 +65,18 @@ PYTHONPATH=scripts work/idf-tools/python_env/idf6.1_py3.15_env/bin/python script
   --sha256 c63be13a00040073ccc06fcdc54e8fd68b4b1f92739462030342a0d8895aa3a1 --auto-rom --log .local/residency/enter.jsonl
 ```
 
-下一步：把这个命令做成 DSH 工具（「醒来」），这样 DSH 能自己进入身体；解决 DSH 启动后要点脸才连上的问题。
+### DSH 工具 `stackchan_wake`（2026-11-26）
+
+DSH 可以自己醒来，不用主人在 Mac 上跑命令：
+
+- **它运行什么：** 插件包里带的 `scripts/enter_dsh.py`，不经过 shell，也不运行别的命令。
+- **参数从哪来：** 本机清单 `~/.dsh/profiles/desktop/.stackchan-resident/resident.json`，记有 Python（需要 esptool 5）、设备身份、常驻镜像和它的摘要。清单只在本机，不进仓库。
+- **成功之后：** 等身体启动约 5 秒，再让语音服务经 USB 去连接身体。语音服务没开时 `attending` 为 false，要主人开服务或点一下脸。
+- **拒绝时：** 告诉 DSH 该怎么跟主人说。比如电压检查不过，就请主人按 RST 后再调用；ota_0 里的 DSH 被原厂升级覆盖了，就说明需要重装。
+- **不会自动重试。**
+
+测试：`test/body-wake.test.mjs` 共 5 组。真机上用同一模块从原厂唤醒，结果是鲸鱼脸（主人确认）。日常 DSH 的插件已换成带这个工具的包（98 个文件核对一致，设置没变）。
+
+还没做：在日常 DSH 会话里实际调用一次（要重开 DSH 才会加载新插件，并且语音服务要开着）；DSH 启动后要点脸才连上的问题。
 
 返回 [身体机能接口](body-interface.md) · [应用中心](app-center.md) · [官方升级共存](dual-boot-updates.md)

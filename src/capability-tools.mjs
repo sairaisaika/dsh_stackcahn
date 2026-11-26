@@ -48,6 +48,14 @@ const failures={
   'display-invalid':'Text: 1..896 UTF-8 bytes; area full/top/bottom; durationMs 100..60000. Image: an absolute path; x, y inside 320x240.',
   'display-unavailable':'The face page is not showing on the device, so nothing can be drawn over it.',
   'display-busy':'Another drawing is still being sent.',
+  'wake-not-installed':'The resident body is not set up on this Mac (no resident manifest); see wiki/residency.md.',
+  'wake-press-rst':'The robot could not be switched safely right now. Ask the owner to hold the RST button for about 3 s until the green light, then call stackchan_wake again.',
+  'wake-port-busy':'The USB port is in use (for example the voice service is attending the factory firmware); stop that and try again.',
+  'wake-different-unit':'The connected robot is not the one this body was installed on.',
+  'wake-not-from-factory':'The robot is not in the confirmed factory firmware right now (the body may already be starting, or a factory update is pending); nothing was written.',
+  'wake-body-missing':'The body firmware is no longer in the robot (a factory update may have replaced it). Reinstalling is a separate step for the owner.',
+  'wake-failed':'Switching did not finish cleanly; do not retry, tell the owner.',
+  'wake-busy':'A wake is already in progress.',
   'frames-unsupported':'The connected firmware has no frame bank.',
   'display-no-room':'The frame bank is full (4 MiB, about 27 full-screen frames) or the device needs its remaining memory; drop frames first.',
   'display-no-frame':'Nothing complete is stored in that slot.',
@@ -93,7 +101,7 @@ const failures={
   speech_failed:'The device could not play the speech. It was not delivered.',
 };
 /** Register only hardware semantics. DSH owns personality, permissions and tool policy. */
-export function registerCapabilityTools(ctx,runtime){
+export function registerCapabilityTools(ctx,runtime,body=null){
   const status=ctx.tools.register(defineTool({
     name:'stackchan_device_status',
     description:'Read the paired StackChan capability report for any DSH session. Use it when checking what the connected firmware supports, what currently blocks a device tool, or whether this conversation replies aloud or in text. It uses cached state. It does not connect, take a photo, or change device settings.',
@@ -487,6 +495,20 @@ export function registerCapabilityTools(ctx,runtime){
       catch(error){throw motionError(error,exec,'The frame bank could not be read.');}
     },
   }));
+  const wake=body?ctx.tools.register(defineTool({
+    name:'stackchan_wake',
+    description:'Wake your body: switch the robot from its factory assistant into the DSH body firmware once, then attend it over USB. Use it when no body is connected and you want to use one. The factory assistant stays the default; when the owner taps Home in the body (or the robot restarts) it goes back to the factory assistant. If it returns status woken but no body connects within a few seconds, ask the owner to tap the robot\'s face once. It writes one small boot record on the robot and never retries on its own.',
+    parameters:{},
+    output:{schema:{type:'object',additionalProperties:false,properties:{
+      version:{type:'integer',enum:[1],required:true},status:{type:'string',enum:['woken','already-awake'],required:true},
+      attending:{type:'boolean'},note:{type:'string'}}},render:(_args,result)=>[{type:'text',text:JSON.stringify(result)}]},
+    async execute(args,exec){
+      if(Object.keys(args).length)throw new ToolArgsError(['no arguments are accepted']);
+      exec.signal.throwIfAborted();
+      try{return await body.wake({signal:exec.signal});}
+      catch(error){throw motionError(error,exec,'Waking the body did not finish.');}
+    },
+  })):null;
   const displayClear=ctx.tools.register(defineTool({
     name:'stackchan_clear_display',
     description:'Remove text or a picture shown with stackchan_show_text or stackchan_show_image, leaving the face.',
@@ -595,5 +617,5 @@ export function registerCapabilityTools(ctx,runtime){
       }
     },
   }));
-  return ()=>{say();burst();displayText();displayImage();displayClear();frameStore();frameShow();frameDrop();frameList();servoStream();infrared();nfcRead();volume();playSound();recordAudio();ringFrames();ring();recordSensors();servoRead();servoRotate();servoTorque();servoMove();motion();camera();expression();status();};
+  return ()=>{wake?.();say();burst();displayText();displayImage();displayClear();frameStore();frameShow();frameDrop();frameList();servoStream();infrared();nfcRead();volume();playSound();recordAudio();ringFrames();ring();recordSensors();servoRead();servoRotate();servoTorque();servoMove();motion();camera();expression();status();};
 }

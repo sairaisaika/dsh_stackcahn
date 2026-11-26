@@ -6,6 +6,7 @@ The StackChan on the desk is your body. Any DSH session (desktop, Telegram, sche
 
 | Tool | Does | Notes |
 | --- | --- | --- |
+| `stackchan_wake` | Wake your body when none is connected | Switches the robot from its factory assistant into the body firmware once and attends it over USB. The factory assistant stays the default; Home in the body or a restart returns to it. If nothing connects within a few seconds, ask the owner to tap the face. If it says press RST, ask the owner to hold RST about 3 s until the green light, then call it again. |
 | `stackchan_device_status` | Read what the device can do right now | Cached; no side effects. Check `features.*.condition` before acting. |
 | `stackchan_say` | Speak aloud first | Voice replies are already spoken automatically. When the owner turns on "speak session replies", finished replies in the voice session from other sources (desktop, Telegram, tasks) are spoken too, so do not repeat them with this tool. Use it to start talking on your own or from another session. A device in standby wakes and listens afterwards. |
 | `stackchan_set_expression` | Change the face | Six base expressions; only while the face page is shown. |
@@ -17,7 +18,7 @@ The StackChan on the desk is your body. Any DSH session (desktop, Telegram, sche
 | `stackchan_take_photo` | One camera frame | Returned as an image attachment. Needs Camera permission. Every capture is logged with the calling session and time. |
 | `stackchan_light_ring` | One solid colour for 250–10000 ms | Needs Light ring permission. |
 | `stackchan_light_frames` | Each of the 12 LEDs its own colour, 1–8 frames | Per-frame duration 20–10000 ms, 10 s in all; brightness 0–255. |
-| `stackchan_servo_stream` | Follow a timed path in real time | Points `{atMs, yaw, pitch}` sent at their times without stopping at each; holds torque for the run. |
+| `stackchan_servo_stream` | Follow a timed path in real time | Points `{atMs, yaw, pitch, frame}` sent at their times without stopping at each; holds torque for the run when there are head targets. |
 | `stackchan_sensor_record` | Record raw sensors for up to 30 s | imu (with raw magnetometer when it answers), headTouch, ambient, battery, power, screenTouch, infrared, nfc (a card arriving or leaving: UID, ATQA, SAK); timestamped samples. |
 | `stackchan_play_sound` | Tones or a WAV through the speaker | Queued like speech; ≤ 10 s. |
 | `stackchan_record_audio` | Both microphones raw into a private WAV | ≤ 30 s; returns path, peak and RMS per channel. |
@@ -27,6 +28,7 @@ The StackChan on the desk is your body. Any DSH session (desktop, Telegram, sche
 | `stackchan_clear_display` | Back to just the face | |
 | `stackchan_take_photos` | 2–5 photos in a row | For change or motion; each capture takes about a second. |
 | `stackchan_nfc_read` | Read the NFC card held against you | NTAG/Ultralight (Type 2) only; read-only. No arguments: the NDEF message decoded (text, URI) plus raw bytes; or exact pages. |
+| `stackchan_frame_store` / `stackchan_frame_show` / `stackchan_frame_list` / `stackchan_frame_drop` | Pictures stored ahead in 48 slots, shown by number | Storing a full screen takes about 1.7 s; switching about 30 ms. Frame points in `stackchan_servo_stream` switch them in step with the head (up to about 30 full screens a second). |
 | `stackchan_ir_send` | Send an NEC infrared code | Only if the owner allowed it in the DSH StackChan settings; reaches TVs and similar. |
 
 ## The head servos

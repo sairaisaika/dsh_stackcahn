@@ -98,7 +98,8 @@
     "lib/typert.remote-client.js",
     "lib/typert.remote-client.d.ts",
     "lib/typert.remote-client.d.ts.map",
-    "scripts/prepare_voice_installation.py"
+    "scripts/prepare_voice_installation.py",
+    "scripts/enter_dsh.py"
   ],
   "dsh": {
     "bundle": {

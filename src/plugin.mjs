@@ -1,3 +1,4 @@
+import { createBodyWake } from './body-wake.mjs';
 import { createVoiceRuntime } from './voice-runtime.mjs';
 import { registerCapabilityTools } from './capability-tools.mjs';
 import { registerBodySkill } from './body-skill.mjs';
@@ -98,7 +99,8 @@ export function apply(ctx, config) {
     onState: sample => voiceLogger.info('STACKCHAN_VOICE_AUTO %s', JSON.stringify(sample)) });
   ctx.provide('stackchanVoice', autoStandby.wrap(runtime));
   new VoiceRemote(ctx);
-  ctx.inject(['tools'],child=>{registerCapabilityTools(child,runtime);});
+  const bodyWake = createBodyWake({ profileDirectory: ctx.get('profileContext')?.dir, runtime });
+  ctx.inject(['tools'],child=>{registerCapabilityTools(child,runtime,bodyWake);});
   ctx.inject(['skills'],child=>{registerBodySkill(child);});
   ctx.effect(() => async () => {
     try { await autoStandby.dispose(); await runtime.dispose(); }

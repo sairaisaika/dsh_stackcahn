@@ -42,6 +42,8 @@ npm run build:plugin
 
 固件用 ESP-IDF 6.1 构建：`scripts/prepare_agent.py` 准备源码，`scripts/build_agent.py` 编译。Python 测试建议用 Homebrew Python（`PATH=/opt/homebrew/bin:$PATH`）。
 
+发布到公开仓只用 `zsh scripts/publish_public.zsh "说明" --push`：它从当前提交导出一份整理过的树，去掉本地数据和不能再分发的素材，`scripts/check_public_tree.py` 检查通过后才提交和推送。私有检出本身不推送。
+
 直测驱动 `scripts/body_probe.mjs` 不经过语音和模型，按脚本逐项调用身体接口，并把读回和耗时记录下来。
 
 ## 刷写和设备安全

@@ -216,19 +216,13 @@ test('USB starts without a listener, opens the saved port on Connect and keeps i
   const end=await f.runtime.execute('shutdown');assert.equal(end.transport,null);assert.equal(open,false);
 });
 
-test('USB opened without READY stays outside TLS and audio, then cancels cleanly',{timeout:2000},async t=>{
+test('USB standby on a silent port (as with the factory firmware) writes nothing, stays outside TLS and cancels cleanly',{timeout:3000},async t=>{
   const {Duplex}=await import('node:stream');
-  const {USB_STANDBY_PROBE}=await import('../src/agent-usb-wire.mjs');
   const profileDirectory=await mkdtemp(join(tmpdir(),'sion-usb-no-ready-'));
   t.after(()=>rm(profileDirectory,{recursive:true,force:true}));
   const diagnosticStore=createVoiceDiagnosticStore(profileDirectory,()=>assert.fail('fixture diagnostic store unavailable'));
-  const retried=deferred();
-  let probes=0;
-  const stream=new Duplex({read(){},write(bytes,_encoding,done){
-    assert.equal(bytes.toString(),USB_STANDBY_PROBE);
-    if(++probes===2)retried.resolve();
-    done();
-  }});
+  let written=0;
+  const stream=new Duplex({read(){},write(_bytes,_encoding,done){written++;done();}});
   t.after(()=>stream.destroy());
   const f=fixture(t,{
     onVoiceDiagnostic:diagnosticStore.write,
@@ -238,7 +232,9 @@ test('USB opened without READY stays outside TLS and audio, then cancels cleanly
   f.change({transport:'usb',usbPort:'/dev/cu.usbmodemfixture'});
   await f.runtime.execute('start');
   await f.runtime.execute('arm-usb');
-  await retried.promise;
+  // Longer than the old probe interval (500 ms): a listening Host still has written nothing.
+  await new Promise(resolve=>setTimeout(resolve,1200));
+  assert.equal(written,0);
   assert.equal(f.runtime.snapshot().usbStandby,true);
   assert.equal(f.runtime.snapshot().connected,false);
   assert.deepEqual(f.events,['identity']);
@@ -255,12 +251,11 @@ test('USB opened without READY stays outside TLS and audio, then cancels cleanly
 
 test('USB standby reports device link loss during audio startup, keeps identity and waits to retry',{timeout:2000},async t=>{
   const {Duplex}=await import('node:stream');
-  const {USB_STANDBY_PROBE,USB_STANDBY_READY}=await import('../src/agent-usb-wire.mjs');
+  const {USB_STANDBY_READY}=await import('../src/agent-usb-wire.mjs');
   const entering=deferred(),dropped=deferred();let peerPhase='idle';
-  const stream=new Duplex({read(){},write(chunk,_encoding,done){
-    assert.equal(chunk.toString(),USB_STANDBY_PROBE);
-    this.push(USB_STANDBY_READY);done();
-  }});
+  // The DSH firmware announces itself unprompted (v77); the Host writes nothing before that.
+  const stream=new Duplex({read(){},write(_chunk,_encoding,done){assert.fail('nothing is written before TLS');done();}});
+  setTimeout(()=>stream.push(USB_STANDBY_READY),50);
   t.after(()=>{dropped.resolve();stream.destroy();});
   const f=fixture(t,{
     identity:{openUsb(port){

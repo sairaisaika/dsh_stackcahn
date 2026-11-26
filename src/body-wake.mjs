@@ -51,12 +51,21 @@ export function createBodyWake({ profileDirectory, runtime, run = runProgram, sl
       if (before?.connected === true) return { version: 1, status: 'already-awake' };
       if (busy) throw fail('wake-busy');
       busy = true;
+      // A listening USB standby holds the port; release it for the switch and listen again after.
+      const listening = before?.usbStandby === true;
       try {
         const m = await manifest();
-        const { code, stdout } = await run(m.python, [ENTER_SCRIPT, '--identity', m.identity, '--image', m.image,
-          '--sha256', m.sha256, '--auto-rom', '--log', join(directory, 'enter.jsonl')], { signal, timeoutMs });
-        const events = stdout.split('\n').filter(l => l.startsWith('{')).map(l => { try { return JSON.parse(l); } catch { return null; } }).filter(Boolean);
-        const last = events.at(-1);
+        if (listening) await runtime.execute('stop', signal).catch(() => {});
+        let code, stdout, last;
+        // "port-in-use" is refused before any write; the released port can take a moment to close.
+        for (let attempt = 0; attempt < 6; attempt++) {
+          ({ code, stdout } = await run(m.python, [ENTER_SCRIPT, '--identity', m.identity, '--image', m.image,
+            '--sha256', m.sha256, '--auto-rom', '--log', join(directory, 'enter.jsonl')], { signal, timeoutMs }));
+          const events = stdout.split('\n').filter(l => l.startsWith('{')).map(l => { try { return JSON.parse(l); } catch { return null; } }).filter(Boolean);
+          last = events.at(-1);
+          if (!(last?.event === 'refused' && last.reason === 'port-in-use')) break;
+          await sleep(500);
+        }
         if (code === 0 && last?.event === 'reset') {
           // Give the body time to start, then let the voice service attend it over USB when it runs.
           await sleep(bootMs);
@@ -64,6 +73,7 @@ export function createBodyWake({ profileDirectory, runtime, run = runProgram, sl
           try { await runtime?.execute?.('arm-usb', signal); attending = true; } catch {}
           return { version: 1, status: 'woken', attending, note: 'If it does not link, tap the face once.' };
         }
+        if (listening) await runtime.execute('arm-usb', signal).catch(() => {});
         if (last?.event === 'refused') throw fail(WAKE_REFUSALS[last.reason] ?? 'wake-refused', { reason: last.reason });
         throw fail('wake-failed', { reason: last?.reason ?? `exit-${code}` });
       } finally { busy = false; }

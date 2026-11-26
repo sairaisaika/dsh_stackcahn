@@ -79,4 +79,26 @@ DSH 可以自己醒来，不用主人在 Mac 上跑命令：
 
 还没做：在日常 DSH 会话里实际调用一次（要重开 DSH 才会加载新插件，并且语音服务要开着）；DSH 启动后要点脸才连上的问题。
 
+## 2026-11-26 醒来后自动连上 Mac（v77，待真机测）
+
+问题：用电源键进 DSH 后，Mac 没人去连。日常 DSH 的 `autoStandby` 一直关着，因为旧的 USB 待命每 0.5 秒往串口写一次探测串 `\nSIONU0\n`；原厂在跑时，这就是在给原厂发未知命令。
+
+做法是把握手方向反过来：
+
+| 端 | 改动 |
+|---|---|
+| 设备 v77（`f5178432…`） | 打开 USB 窗口等 Mac 时，每 0.5 秒主动发一行 `SIONU0 READY`，Mac 发来第一个字节后停止。原厂不会发这一行 |
+| Mac 插件 | USB 待命只听：打开串口（不动 DTR/RTS），一个字节都不写，直到听到 `READY` 才发握手前导。TLS 之前跳过第一个 TLS 记录字节（0x16）之前的所有文本，所以晚到的 `READY` 行不会破坏握手 |
+| `stackchan_wake` | 待命占着串口时，先停掉待命（经监督程序，自动待命会暂停），切换后重新待命；「串口被占用」的拒绝发生在写入之前，可以等着重试 |
+| 测试 | 只听模式 1.2 秒内不写任何字节；`READY` 行混在 TLS 之前时握手照样成功（去掉过滤后这条测试会失败）；醒来时会释放并恢复待命。Mac 端 410 项测试通过，固件主机测试通过，QEMU 11 项通过 |
+
+已经装上的：
+- ota_0 已换成 v77（`scripts/update_resident.py`：一次 ROM 连接里核对原厂在运行、ota_0 里确实是 v76，然后写入，用 MD5 核对）；
+- 日常 DSH 插件换成 v77，`autoStandby` 打开（原值备份在 `.local/residency/cordis-before-autostandby.yml`）；
+- 本地清单指向 v77。
+
+过程中踩到的坑：为了公开仓，我改了 `vendor/voice/requirements-macos-arm64.lock` 的一行注释，结果本机语音环境的指纹对不上，语音服务报 `voice_installation_outdated` 起不来。现在私有仓库恢复原样，只在发布时替换公开副本里的这一行。
+
+还没测：重开 DSH 后，用电源键进 DSH、不点脸，Mac 能不能自动连上。
+
 返回 [身体机能接口](body-interface.md) · [应用中心](app-center.md) · [官方升级共存](dual-boot-updates.md)

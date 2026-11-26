@@ -16,6 +16,9 @@ find "$pub" -mindepth 1 -maxdepth 1 ! -name .git -exec rm -rf {} +
 git archive HEAD | tar -x -C "$pub"
 rm -f "$pub"/firmware/whale-sources/*.(jpg|jpeg|png|webp)(N) \
       "$pub/firmware/agent/whale_assets.bin" "$pub/wiki/assets/whale-avatar-preview.png"
+# The voice lock's header names the local Python path; the private copy keeps its exact bytes
+# (the installed voice environment fingerprints this file), the public copy shows ~ instead.
+sed -i '' "s#$HOME/#~/#g" "$pub/vendor/voice/requirements-macos-arm64.lock"
 python3 scripts/check_public_tree.py "$pub" --deny .local/public-deny.txt
 git -C "$pub" add -A
 if git -C "$pub" diff --cached --quiet; then echo 'Public tree already matches; nothing to commit.'; exit 0; fi

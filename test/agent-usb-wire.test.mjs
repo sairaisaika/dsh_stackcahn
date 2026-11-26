@@ -198,6 +198,34 @@ test('USB standby ignores ordinary bytes, accepts only an exact fragmented ready
   assert.equal(host.listenerCount('readable'),0);
 });
 
+test('a listening USB standby writes nothing and resolves only on the ready line the firmware offers', async t => {
+  let written = 0;
+  const host = new Duplex({read(){},write(_bytes,_encoding,done){written++;done();}});
+  t.after(()=>host.destroy());
+  const ready = waitForUsbReady(host, new AbortController().signal, { listenOnly: true });
+  let resolved = false;
+  ready.then(()=>{resolved=true;});
+  host.push('I (312) boot: factory log line\n');   // what another firmware might print
+  await new Promise(resolve=>setTimeout(resolve,700));
+  assert.equal(resolved,false); assert.equal(written,0);
+  host.push(USB_STANDBY_READY);
+  await ready;
+  assert.equal(written,0);
+});
+
+test('ready lines still arriving before TLS are skipped up to the first TLS record', { timeout: 6000 }, async t => {
+  const transport = fixture(t);
+  const ports = endpointPair(t);
+  const ready = transport.attachUsb(ports.host);
+  // The firmware keeps offering its ready line until it sees the Host's first byte.
+  ports.device.write(USB_STANDBY_READY + USB_STANDBY_READY.slice(1));
+  const client = startClient(t, ports.device);
+  await once(client, 'secureConnect');
+  client.write(hello());
+  const connection = await ready;
+  assert.ok(connection);
+});
+
 async function connected(t, transport) {
   const ports = endpointPair(t);
   const ready = transport.attachUsb(ports.host);

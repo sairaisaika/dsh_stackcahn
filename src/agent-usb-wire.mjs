@@ -29,8 +29,10 @@ function tlsIdentity(alpn,deviceId,pairId,token) {
   return { identity, psk };
 }
 
-/** Wait on the already checked port, before starting TLS or admitting audio. */
-export function waitForUsbReady(stream, signal) {
+/** Wait on the already checked port, before starting TLS or admitting audio. With listenOnly
+ * nothing is written: it resolves only when the device firmware announces itself (v77 offers
+ * the ready line unprompted), so a port where the factory firmware runs is never sent a byte. */
+export function waitForUsbReady(stream, signal, { listenOnly = false } = {}) {
   signal.throwIfAborted();
   const line=Buffer.from(USB_STANDBY_READY.slice(1),'ascii');
   const ready=Promise.withResolvers();
@@ -64,7 +66,7 @@ export function waitForUsbReady(stream, signal) {
   stream.on('readable',read);
   signal.addEventListener('abort',cancel,{once:true});
   if(stream.destroyed||stream.readableEnded)disconnected();
-  else probe();
+  else if(!listenOnly)probe();
   return ready.promise;
 }
 
@@ -75,12 +77,36 @@ export function createUsbAgentWire(stream, credentials) {
 export function createRelayAgentWire(stream, credentials) {
   return createAgentByteWire(stream,credentials,RELAY_AGENT_ALPN,RELAY_AGENT_PREAMBLE);
 }
+/** The device's ready line may still be arriving when TLS starts (it is offered unprompted until
+ * the Host speaks). TLS from the device begins with a handshake record (0x16), which none of
+ * those text lines contain: hand TLS the bytes from there on. */
+function fromFirstTlsRecord(stream) {
+  let started = false;
+  const view = new Duplex({
+    read() { stream.resume(); },
+    write(chunk, encoding, done) { stream.write(chunk, encoding, done); },
+    final(done) { stream.end(); done(); },
+    destroy(error, done) { stream.destroy(error ?? undefined); done(error); },
+  });
+  stream.on('data', chunk => {
+    if (!started) {
+      const at = chunk.indexOf(0x16);
+      if (at < 0) return;
+      started = true;
+      chunk = chunk.subarray(at);
+    }
+    if (!view.push(chunk)) stream.pause();
+  });
+  stream.once('end', () => view.push(null));
+  return view;
+}
+
 function createAgentByteWire(stream, { deviceId, pairId, localToken }, alpn, preamble) {
   if (!(stream instanceof Duplex) || !stream.readable || !stream.writable)
     throw new TypeError('An open duplex stream is required');
   const { identity, psk } = tlsIdentity(alpn,deviceId,pairId,localToken);
   const secureContext = createSecureContext({ minVersion: version, maxVersion: version, ciphers: USB_AGENT_CIPHER });
-  const tls = new TLSSocket(stream, {
+  const tls = new TLSSocket(alpn === USB_AGENT_ALPN ? fromFirstTlsRecord(stream) : stream, {
     secureContext, isServer: true, ALPNProtocols: [alpn],
     pskCallback: (_socket, offeredIdentity) => offeredIdentity === identity ? psk : null,
   });

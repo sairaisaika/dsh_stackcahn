@@ -30,7 +30,7 @@ public:
     PairingWrite WriteRelay(const std::string& pair,const std::string* record)override{return store_.WriteRelay(pair,record);}
 };
 uint64_t Now(){return static_cast<uint64_t>(esp_timer_get_time()/1000);}
-constexpr uint64_t OpenMs=15000, HandshakeMs=6000, SilenceMs=15000, WriteMs=3000;
+constexpr uint64_t OpenMs=15000, HandshakeMs=6000, SilenceMs=15000, WriteMs=3000, OfferMs=500;
 
 int SendUsb(void*,const unsigned char* bytes,size_t size) {
     const auto sent=usb_serial_jtag_write_bytes(bytes,std::min<size_t>(size,2048),0);
@@ -141,10 +141,22 @@ private:
             }
             return preamble.Feed(byte);
         };
+        // A listening Host (v77) writes nothing until it hears this firmware, so the line is
+        // also offered unprompted, twice a second, until the Host sends its first byte. The
+        // factory firmware never says it, so such a Host never writes to the factory firmware.
+        bool host_spoke=size>0;
+        uint64_t next_offer=0;
         for(int i=0;i<size&&!queue_.Closing(generation);++i)if(accept(initial[i]))return true;
         while(!queue_.Closing(generation)&&Now()-opened_<OpenMs) {
+            if(!host_spoke&&!probe_seen&&Now()>=next_offer) {
+                usb_serial_jtag_write_bytes(UsbStandbyReady,sizeof(UsbStandbyReady)-1,0);
+                next_offer=Now()+OfferMs;
+            }
             char byte;
-            if(usb_serial_jtag_read_bytes(&byte,1,1)==1&&accept(byte))return true;
+            if(usb_serial_jtag_read_bytes(&byte,1,1)==1) {
+                host_spoke=true;
+                if(accept(byte))return true;
+            }
         }
         return false;
     }

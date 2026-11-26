@@ -318,7 +318,9 @@ export function createVoiceRuntime({ctx,pairing,getPreferences,installation={},p
       await r.usb.ready;
       r.diagnostics?.stage('usb-opened');
       signal.throwIfAborted();
-      if(standby)await waitForUsbReady(r.usb.stream,signal);
+      // Standby only listens: it writes nothing until the DSH firmware announces itself, so the
+      // factory firmware on the same port is never sent a byte (wiki/residency.md).
+      if(standby)await waitForUsbReady(r.usb.stream,signal,{listenOnly:true});
       if(standby)r.diagnostics?.stage('usb-device-ready');
       signal.throwIfAborted();
       if(key(r.preferences)!==key(getPreferences()))throw fail('voice_restart_required');

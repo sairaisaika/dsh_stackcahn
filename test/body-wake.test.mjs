@@ -64,7 +64,7 @@ test('refusals map to what the owner should do; failures are not retried', async
     const wake = createBodyWake({ profileDirectory: dir, runtime: { snapshot: () => ({}) }, sleep: async () => {},
       run: async () => { runs++; return { code: reason === 'flash-voltage' ? 3 : 2, stdout: lines({ event: 'refused', reason }) }; } });
     await assert.rejects(wake.wake(), { code });
-    assert.equal(runs, 1);
+    assert.equal(runs, reason === 'port-in-use' ? 6 : 1);   // a busy port is refused before any write; waited for
     await rm(dir, { recursive: true });
   }
   const dir = await profile(good);
@@ -85,5 +85,24 @@ test('a second wake while one runs is busy; without a voice service it still wak
   release();
   const result = await first;
   assert.equal(result.status, 'woken'); assert.equal(result.attending, false);
+  await rm(dir, { recursive: true });
+});
+
+test('a listening USB standby is released for the switch, then listens again; a busy port is waited for', async () => {
+  const dir = await profile(good);
+  const actions = []; let runs = 0;
+  const runtime = { snapshot: () => ({ connected: false, usbStandby: true }), execute: async a => { actions.push(a); } };
+  const wake = createBodyWake({ profileDirectory: dir, runtime, sleep: async () => {},
+    run: async () => (++runs < 3 ? { code: 2, stdout: lines({ event: 'refused', reason: 'port-in-use' }) }
+      : { code: 0, stdout: lines({ event: 'reset' }) }) });
+  const result = await wake.wake();
+  assert.equal(result.status, 'woken'); assert.equal(runs, 3);
+  assert.deepEqual(actions, ['stop', 'arm-usb']);
+  const refusedActions = [];
+  const refusing = createBodyWake({ profileDirectory: dir, sleep: async () => {},
+    runtime: { snapshot: () => ({ usbStandby: true }), execute: async a => { refusedActions.push(a); } },
+    run: async () => ({ code: 3, stdout: lines({ event: 'refused', reason: 'flash-voltage' }) }) });
+  await assert.rejects(refusing.wake(), { code: 'wake-press-rst' });
+  assert.deepEqual(refusedActions, ['stop', 'arm-usb']);
   await rm(dir, { recursive: true });
 });

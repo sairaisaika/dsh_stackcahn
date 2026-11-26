@@ -98,8 +98,9 @@ export function apply(ctx, config) {
   const autoStandby = createAutoStandby({ runtime, getPreferences: () => config.preferences.get(),
     onState: sample => voiceLogger.info('STACKCHAN_VOICE_AUTO %s', JSON.stringify(sample)) });
   ctx.provide('stackchanVoice', autoStandby.wrap(runtime));
+  // Through the supervisor's wrapper: the wake tool's own Stop holds auto-standby during the switch.
+  const bodyWake = createBodyWake({ profileDirectory: ctx.get('profileContext')?.dir, runtime: autoStandby.wrap(runtime) });
   new VoiceRemote(ctx);
-  const bodyWake = createBodyWake({ profileDirectory: ctx.get('profileContext')?.dir, runtime });
   ctx.inject(['tools'],child=>{registerCapabilityTools(child,runtime,bodyWake);});
   ctx.inject(['skills'],child=>{registerBodySkill(child);});
   ctx.effect(() => async () => {

@@ -1,5 +1,12 @@
 # 本轮验收记录
 
+## 2026-11-26 常驻 R1 真机：DSH 留在 ota_0，Mac 一条命令进入，原厂照常
+
+详见 [常驻方案](residency.md#2026-11-26-完成与验收)。
+- 首次启动 1 次，用 `scripts/enter_dsh.py` 进入 3 次，最后一次从原厂全自动进入。
+- 每次回原厂后原厂助手都能回答，StackChan World 仍连着（主人确认）。
+- 日常 DSH 插件已换成 v76，`autoStandby` 仍然关闭。
+
 ## 2026-11-25 v76 真机：帧直接推给屏幕，每秒 20、30 帧都不断线
 
 试装目录 `work/active/v76-direct-frames/physical-v76.*`，镜像 `c63be13a…`。恢复后整片与试装前一致。设计见 [头耦合透视](head-coupled-view.md#v76帧直接推给屏幕)。

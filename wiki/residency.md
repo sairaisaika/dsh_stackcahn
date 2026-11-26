@@ -1,6 +1,6 @@
 # 常驻方案：让 DSH 平时就能用这具身体
 
-2026-11-25 主人要求「一起做」：常驻方案和本地提交同时推进。这页给出方案和需要主人点头的地方。**在主人明确同意前，不做任何常驻写入。**
+2026-11-25 主人要求「一起做」：常驻方案和本地提交同时推进。主人选了 R1，两步都做；**2026-11-26 已完成并真机验收**，用法和结果见文末。
 
 ## 现状
 
@@ -39,10 +39,32 @@
    - DSH 会话能用全部身体工具；
    - 重启后默认还是原厂。
 
-## 需要主人决定的
+## 主人当时要决定的（已同意 R1 两步）
 
 - 同意用 DSH 替换 `ota_0` 里的 IR Remote 吗？
 - 同意每次进入都写一次 otadata 扇区吗？它是 Flash 的一个 4 KiB 扇区，寿命约十万次擦写，日常用不会成为问题。
 - 先做第 1 步（只换 Mac 插件）吗？这一步可以单独做。
+
+## 2026-11-26 完成与验收
+
+| 项 | 结果 |
+|---|---|
+| Mac 日常插件 | 换成 v76 包。96 个文件逐个核对一致，`autoStandby` 保持关闭（原厂在跑时插件不会自己去开串口）。换回旧包：`zsh .local/residency/swap-plugin.zsh rollback` |
+| 设备常驻 | DSH v76（`c63be13a…`）已写进 `ota_0`，整片读回核对通过，IR Remote 被替换。写之前的整片备份在 `.local/backups/sion-resident-v76-before-*` |
+| 进入身体 | `scripts/enter_dsh.py`：在一次 ROM 连接里依次做设备身份、3.3 V 电压绑定、两条 OTA 记录、`ota_0` 镜像 MD5 的核对，然后写一条「下次启动进 DSH」的记录，读回确认后重启。和试装用的选择完全一致：原厂序号 + 1，写进另一个扇区。主机测试覆盖 6 种接受、4 种拒绝的状态 |
+| 回原厂 | DSH 里 Back → Home，或重启 |
+| 真机往返 | 首次启动 1 次；用命令进入 3 次，最后一次从原厂全自动进入、不用按 RST。每次回原厂后原厂助手都能回答，StackChan World 仍连着（主人确认） |
+| 现场遇到并修掉的 | ① 写函数的参数类型错了，在写入前报错，没有写入；② 经 USB 复位进入下载模式会留下「强制下载启动」标志，重启后又回到下载模式，现在重启前会清掉这个标志；③ 选择已经写好、只是没能启动时，再次运行不写入、只重启 |
+| 仍然存在的 | 自动进 ROM 有时报告 1.8 V（会被拒绝，需要按 RST）；DSH 启动后要点一下脸才连 Mac；原厂恢复后有时要重插 USB 线 |
+
+用法：
+
+```sh
+PYTHONPATH=scripts work/idf-tools/python_env/idf6.1_py3.15_env/bin/python scripts/enter_dsh.py \
+  --identity .local/residency/device/identified-device.json --image .local/residency/dsh-resident.bin \
+  --sha256 c63be13a00040073ccc06fcdc54e8fd68b4b1f92739462030342a0d8895aa3a1 --auto-rom --log .local/residency/enter.jsonl
+```
+
+下一步：把这个命令做成 DSH 工具（「醒来」），这样 DSH 能自己进入身体；解决 DSH 启动后要点脸才连上的问题。
 
 返回 [身体机能接口](body-interface.md) · [应用中心](app-center.md) · [官方升级共存](dual-boot-updates.md)

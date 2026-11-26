@@ -4,7 +4,7 @@
 
 *Turn an M5Stack StackChan into a body for a DeepSeek Harness session: firmware that exposes every part of the robot as raw capabilities, a Mac plugin that hands them to DSH as tools, and the engineering wiki behind both.*
 
-> **状态：开发中，不是成品。** 所有身体接口都在真机上试装验证过，但每次试装后设备都恢复成原厂固件。常驻安装方案还在进行中，见 [wiki/residency.md](wiki/residency.md)。本仓库不提供可直接刷写的固件镜像。
+> **状态：开发中，不是成品。** 所有身体接口都在真机上验证过。DSH 固件可以常驻在原厂的另一个 OTA 槽里，原厂仍是默认启动；需要身体时由 Mac 切进去，回原厂点 Home（[wiki/residency.md](wiki/residency.md)）。本仓库不提供可直接刷写的固件镜像。
 
 ## 由哪几部分组成
 

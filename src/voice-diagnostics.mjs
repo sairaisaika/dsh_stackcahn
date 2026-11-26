@@ -7,6 +7,9 @@ import { performance } from 'node:perf_hooks';
 const reportIntervalMs = 5000;
 const clockIntervalMs = 50;
 const fileBudget = 512 * 1024;
+// Older files kept after rotation: voice.previous.jsonl, then .2 to .4 (about a few days of a
+// linked body), so a fault after many hours still has its lead-up on disk.
+const keptFiles = 4;
 const logQueueBudget = 32;
 const maxima = ['usbReadBytesMax', 'usbReadGapMsMax', 'inputGapMsMax', 'queueDepthMax',
   'queueWaitMsMax', 'frontendMsMax', 'clockDelayMsMax'];
@@ -16,7 +19,7 @@ const windowStats = () => ({
   clockTicks: 0, clockDelayMsMax: 0,
 });
 
-/** Keep the latest two private files across a DSH restart. Do no I/O until
+/** Keep the latest few private files across a DSH restart. Do no I/O until
  * the first service event. A slow or unavailable disk cannot block capture. */
 export function createVoiceDiagnosticStore(profileDirectory, onUnavailable) {
   if (typeof profileDirectory !== 'string' || !isAbsolute(profileDirectory)) return;
@@ -43,7 +46,10 @@ export function createVoiceDiagnosticStore(profileDirectory, onUnavailable) {
       } finally { await file.close(); }
     }
     if (await write()) return;
-    await rename(current, join(directory, 'voice.previous.jsonl'));
+    const older = n => join(directory, n === 1 ? 'voice.previous.jsonl' : `voice.previous.${n}.jsonl`);
+    for (let n = keptFiles - 1; n >= 1; n--)
+      await rename(older(n), older(n + 1)).catch(error => { if (error.code !== 'ENOENT') throw error; });
+    await rename(current, older(1));
     if (!await write()) throw new Error('voice-diagnostic-rotation');
   }
   return {

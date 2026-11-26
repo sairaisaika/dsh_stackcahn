@@ -33,6 +33,7 @@ test('the body probe takes exact steps and rejects anything out of range', () =>
     { kind: 'image', path: '/tmp/a.png', durationMs: 5000 },
     { kind: 'clear' },
   ]);
+  assert.deepEqual(parseSteps(['storecrops', '/tmp/c', '0'])[0], { kind: 'storecrops', path: '/tmp/c', first: 0 });
   assert.deepEqual(parseSteps(['storedir', '/tmp/f', '0', 'store', '3', '/tmp/a.bmp', 'show', '3', '1000', 'bank', 'cycle', '0', '12', '50', '2',
     'timeline', '/tmp/t.json', 'drop', '3', 'drop', 'all']), [
     { kind: 'storedir', path: '/tmp/f', first: 0 },

@@ -130,7 +130,7 @@ def tank(eye, dirs):
     return colour, t
 
 
-def render(alpha_deg, psi_deg):
+def render(alpha_deg, psi_deg, whale=True):
     eye, dirs = rays(alpha_deg)
     colour, t_near = tank(eye, dirs)
     # Whale: rotate the rays into its frame (yaw psi: forward (sin psi, 0, cos psi) in screen coordinates).
@@ -138,7 +138,7 @@ def render(alpha_deg, psi_deg):
     to_local = np.array([[c, 0, -s], [0, 1, 0], [s, 0, c]])
     o_local = to_local @ (eye - WHALE_AT)
     d_local = dirs @ to_local.T
-    for centre, radii, paint in PARTS:
+    for centre, radii, paint in (PARTS if whale else ()):
         t, n_local = ellipsoid_hit(o_local, d_local, np.array(centre), radii)
         n = n_local @ to_local
         if isinstance(paint, str):   # body: blue back, pale belly
@@ -168,6 +168,33 @@ def render(alpha_deg, psi_deg):
     return Image.fromarray((img * 255 + 0.5).astype(np.uint8), 'RGB')
 
 
+def crops(out, psis, step_name):
+    """Character-only frames for the frame bank (wiki/head-coupled-view.md): one full-screen
+    background without the whale, then for each angle only the box the whale can cover. The box
+    already carries its background pixels, so pushing it over the background is seamless; with
+    frames 2 a box of a third of the screen redraws in about a third of the time."""
+    folder = out / step_name
+    folder.mkdir(parents=True, exist_ok=True)
+    background = render(0, 0, whale=False)
+    frames = [render(0, psi) for psi in psis]
+    bg = np.asarray(background, dtype=np.int16)
+    mask = np.zeros(bg.shape[:2], bool)
+    for f in frames:
+        mask |= (np.abs(np.asarray(f, dtype=np.int16) - bg).sum(-1) > 6)
+    ys, xs = np.nonzero(mask)
+    x0, y0 = max(0, int(xs.min()) - 2) & ~1, max(0, int(ys.min()) - 2)
+    x1, y1 = min(W, int(xs.max()) + 3), min(H, int(ys.max()) + 3)
+    background.save(folder / 'background.bmp')
+    names = []
+    for k, (psi, f) in enumerate(zip(psis, frames)):
+        name = f'{k:02d}_psi{psi:+04d}.bmp'
+        f.crop((x0, y0, x1, y1)).save(folder / name)
+        names.append(name)
+    (folder / 'crops.json').write_text(json.dumps({'background': 'background.bmp', 'x': x0, 'y': y0,
+        'width': x1 - x0, 'height': y1 - y0, 'frames': names}, indent=2))
+    return x0, y0, x1 - x0, y1 - y0
+
+
 def main():
     out = Path(sys.argv[1] if len(sys.argv) > 1 else 'frames')
     (out / 'turn').mkdir(parents=True, exist_ok=True)
@@ -195,8 +222,18 @@ def main():
             last = frame
         points.append(point)
     (out / 'sweep.json').write_text(json.dumps({'points': points}))
+    # 5-degree turn as character-only crops over one background (slot 0 background, crops from 1).
+    psis5 = list(range(-60, 61, 5))
+    box = crops(out, psis5, 'turn-crops')
+    seq = list(range(1, 1 + len(psis5)))
+    for fps, step in ((30, 33), (45, 22), (60, 16)):
+        order = seq + seq[-2:0:-1]
+        order = order * 2 + [seq[0]]
+        pts = [{'atMs': 0, 'frame': 0}] + [{'atMs': 400 + i * step, 'frame': f} for i, f in enumerate(order)]
+        (out / f'turn-crops-{fps}fps.json').write_text(json.dumps({'points': pts}))
     print(json.dumps({'turn': len(turn), 'window': len(thetas), 'firstWindowSlot': first_window_slot,
-                      'sweepPoints': len(points), 'sweepFrameChanges': sum('frame' in p for p in points)}))
+                      'sweepPoints': len(points), 'sweepFrameChanges': sum('frame' in p for p in points),
+                      'cropBox': box, 'crops': len(psis5)}))
 
 
 if __name__ == '__main__':

@@ -6,15 +6,15 @@ import shutil
 from prepare_firmware import ROOT, prepare, sha, run
 
 PROFILE = 'independent-ip-change-v55'
-APP_VERSION = 'dsh-agent-v77-usb-offer'
+APP_VERSION = 'dsh-agent-v78-nfc-retry'
 MENU_PROFILE = 'independent-ip-change-menu-v55'
-MENU_VERSION = 'dsh-agent-v77-usb-offer-menu'
+MENU_VERSION = 'dsh-agent-v78-nfc-retry-menu'
 MENU_INPUTS = ('menu_request.h', 'rtc_menu_request.h', 'menu_device.h', 'sdkconfig.rtc.defaults')
 APP_CENTER_PROFILE = 'independent-ip-change-app-center-v55'
-APP_CENTER_VERSION = 'dsh-agent-v77-usb-offer-ota'
+APP_CENTER_VERSION = 'dsh-agent-v78-nfc-retry-ota'
 APP_CENTER_SOURCES = ('tail_storage.cc', 'tail_storage.h', 'return_to_stock.cc', 'return_to_stock.h')
 APP_CENTER_HOME_PROFILE = 'independent-app-center-home-v55'
-APP_CENTER_HOME_VERSION = 'dsh-agent-v77-usb-offer-home-ota'
+APP_CENTER_HOME_VERSION = 'dsh-agent-v78-nfc-retry-home-ota'
 
 
 def inputs(menu_return=False, app_center=False, app_center_home=False):

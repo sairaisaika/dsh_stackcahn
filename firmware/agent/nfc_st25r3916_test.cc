@@ -141,6 +141,16 @@ static void Wrote(const Chip& chip, std::vector<uint8_t> bytes) {
 }
 
 int main() {
+    {   // Read retries: absent card and a bad page read are tried again; bus fault, unsupported card and the limit end it.
+        using C = sion::agent::NfcRead::Code;
+        assert(sion::agent::RetryNfcRead(C::NoCard, false, 1, 8));
+        assert(sion::agent::RetryNfcRead(C::Failed, false, 7, 8));
+        assert(!sion::agent::RetryNfcRead(C::Failed, false, 8, 8));
+        assert(!sion::agent::RetryNfcRead(C::Failed, true, 1, 8));
+        assert(!sion::agent::RetryNfcRead(C::Unsupported, false, 1, 8));
+        assert(!sion::agent::RetryNfcRead(C::Read, false, 1, 8));
+    }
+
     {   // Something else at 0x50: read only, never written.
         Chip chip;chip.identity = 0x00;
         St25r3916<Chip> reader(chip);

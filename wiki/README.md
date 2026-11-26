@@ -13,6 +13,7 @@ StackChan 负责收音、播报及设备动作，Mac 上的插件将它接到用
 | 分工 · 设备、Mac 和 DSH 各担什么（2026-11-21 设计） | — | [分离式设计](split-design.md) |
 | 玩法 · 头耦合透视：屏幕里的小空间、帧库（2026-11-25 设计） | — | [头耦合透视](head-coupled-view.md) |
 | 常驻 · 让 DSH 平时就能用身体（2026-11-26 已完成 R1） | — | [常驻方案](residency.md) |
+| 下一次真机：攒在一起测的清单（2026-11-26） | — | [合并测试清单](device-test-batch.md) |
 | 切换 · 开机后短按一下电源键进 DSH（2026-11-26 真机通过） | — | [开机选择器](boot-selector-power-key.md) |
 | 架构 · 人格、语音和硬件怎样分工 | [V1 架构图](assets/views/architecture.svg) | [责任结构](system-views.md#责任结构) |
 | 流程 · 从配置到对话、停止和返回 | [V3 流程图](assets/views/user-flow.svg) | [目标用户流程](system-views.md#目标用户流程) |

@@ -109,6 +109,10 @@ export function parseSteps(words) {
       const path = words[i++];
       if (!path?.startsWith('/')) throw new Error('storedir needs an absolute directory');
       steps.push({ kind: 'storedir', path, first: int(words[i++], 0, 47, 'first slot') });
+    } else if (word === 'storecrops') {   // storecrops /absolute/dir FIRSTSLOT: crops.json from render_fishtank.py
+      const path = words[i++];
+      if (!path?.startsWith('/')) throw new Error('storecrops needs an absolute directory');
+      steps.push({ kind: 'storecrops', path, first: int(words[i++], 0, 47, 'first slot') });
     } else if (word === 'show') steps.push({ kind: 'show', slot: int(words[i++], 0, 47, 'slot'), durationMs: int(words[i++], 100, 60000, 'durationMs') });
     else if (word === 'drop') {
       const slot = words[i] === 'all' ? (i++, 'all') : int(words[i++], 0, 47, 'slot');
@@ -230,15 +234,15 @@ async function main() {
           log(`${step.kind}-failed`, { target: step, tookMs: Math.round(performance.now() - t), code: error?.code ?? String(error),
             ...(error?.pollStats ? { pollStats: error.pollStats } : {}) });
         }
-      } else if (['store', 'storedir', 'show', 'drop', 'bank', 'cycle', 'timeline'].includes(step.kind)) {
+      } else if (['store', 'storedir', 'storecrops', 'show', 'drop', 'bank', 'cycle', 'timeline'].includes(step.kind)) {
         t = performance.now();
         try {
-          const store = async (slot, path) => {
-            const image = await loadImageRgb565(path);
-            const tag = frameTag({ ...image, x: 0, y: 0 });
+          const store = async (slot, path, x = 0, y = 0) => {
+            const image = await loadImageRgb565(path, { maxWidth: 320 - x, maxHeight: 240 - y });
+            const tag = frameTag({ ...image, x, y });
             const held = await connection.listFrames({ signal });
             if (held.frames.some(f => f.slot === slot && f.tag === tag)) return { status: 'already', slot, tag };
-            return connection.storeFrame({ slot, ...image, tag }, { signal });
+            return connection.storeFrame({ slot, ...image, x, y, tag }, { signal });
           };
           let result;
           if (step.kind === 'store') result = await store(step.slot, step.path);
@@ -248,6 +252,15 @@ async function main() {
             result = [];
             for (const [k, name] of files.entries()) {
               const one = await store(step.first + k, join(step.path, name));
+              log('stored', { file: name, ...one });
+              result.push({ file: name, slot: one.slot, status: one.status, tookMs: one.tookMs });
+            }
+          } else if (step.kind === 'storecrops') {
+            const manifest = JSON.parse(readFileSync(join(step.path, 'crops.json'), 'utf8'));
+            if (step.first + 1 + manifest.frames.length > 48) throw new Error('too many frames for the slots');
+            result = [{ file: manifest.background, ...(await store(step.first, join(step.path, manifest.background))) }];
+            for (const [k, name] of manifest.frames.entries()) {
+              const one = await store(step.first + 1 + k, join(step.path, name), manifest.x, manifest.y);
               log('stored', { file: name, ...one });
               result.push({ file: name, slot: one.slot, status: one.status, tookMs: one.tookMs });
             }

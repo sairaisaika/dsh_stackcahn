@@ -61,6 +61,15 @@ struct NfcRead {
     Code code = Code::None;
     uint8_t data[kMaxPages * 4]{};
 };
+
+// One read request may take several polls: try again while the card is not there yet or a
+// present card answered a page read badly (v74 saw one such failure as the card was being
+// placed). A bus fault or an unsupported card ends it at once. attempts counts this poll.
+inline bool RetryNfcRead(NfcRead::Code code, bool bus_error, unsigned attempts, unsigned limit) {
+    if (bus_error || attempts >= limit) return false;
+    return code == NfcRead::Code::NoCard || code == NfcRead::Code::Failed;
+}
+
 // How far polls got since the reader was last enabled: raw counts, one stage per poll
 // (the furthest reached), so "never answered" and "answered but garbled" can be told apart.
 struct NfcPollStats {

@@ -99,7 +99,7 @@ public:
             const auto result = reader_.PollOnce(card, reading ? &read : nullptr);
             if (reading) {
                 std::lock_guard<std::mutex> lock(mutex_);
-                const bool retry = read.code == NfcRead::Code::NoCard && ++read_attempts_ < kReadAttempts;
+                const bool retry = RetryNfcRead(read.code, result == St25r3916<NfcBus>::Poll::BusError, ++read_attempts_, kReadAttempts);
                 if (generation_ == generation && read_pending_ && !retry) {
                     if (result == St25r3916<NfcBus>::Poll::BusError) read.code = NfcRead::Code::Failed;
                     read_ = read; read_card_ = result == St25r3916<NfcBus>::Poll::Card ? card : NfcCard{};

@@ -40,7 +40,7 @@ v54 的「USB connection ended」由设备成功完成 PSK TLS 认证并进入�
 | LocalVoice / Host 时钟 | `frontendCalls`、`frontendFrames`、`frontendMsMean`、`frontendMsMax`、`frontendPendingFrames`、可能的 `frontendPendingMs`；50 ms 时钟采样的 `clockTicks` 与 `clockDelayMsMax` 估计 Host 未被调度的时间 |
 | DSH 日志和本机诊断文件 | Cordis 收到同一事件，独立 profile 文件另写 ISO 时间。开发者或机器所有者用 run/capture 对齐前后顺序 |
 
-在用户所用 DSH profile 下读取 `.stackchan-diagnostics/voice.jsonl` 和 `voice.previous.jsonl`。代码只在首次服务日志时创建私有目录（0700）和文件（0600），单文件 512 KiB，滚动保留两份，后台写入队列最多 32 条。存储不可用时 Cordis 记录固定警告，音频继续。日志保存状态、时长与计数，排除录音、转写、路径、会话/设备/配对 ID 和秘密。 [采集、落盘与轮转](../src/voice-diagnostics.mjs) · [USB 接收边界](../src/usb-serial.mjs)
+在用户所用 DSH profile 下读取 `.stackchan-diagnostics/voice.jsonl` 和 `voice.previous.jsonl`。代码只在首次服务日志时创建私有目录（0700）和文件（0600），单文件 512 KiB，满了就轮转：当前文件加四份旧文件（`voice.previous.jsonl`、`voice.previous.2.jsonl` 到 `.4`），最旧的先删，后台写入队列最多 32 条。存储不可用时 Cordis 记录固定警告，音频继续。日志保存状态、时长与计数，排除录音、转写、路径、会话/设备/配对 ID 和秘密。 [采集、落盘与轮转](../src/voice-diagnostics.mjs) · [USB 接收边界](../src/usb-serial.mjs)
 
 诊断时先找首个缺帧，再对照上一窗口及同窗口。原始 USB 到达出现长间隔和大批次、同时前端稳定，优先查设备或串口路径。USB 节奏稳定但前端延时升高，优先查 Mac 音频进程。多项同时跳升且时钟延迟同步上升，检查 Host 调度。窗口峰值提供线索，较高峰值之间的因果顺序仍须结合阶段事件。v54 没有设备端取样时间戳，也不上传固件任务退出原因。Mac 看到 USB 停止后只能确定本端观察，Sion 屏幕恢复仍须现场看一次。 [候选验证](validation.md#v54-收音过载修复候选) · [ESP32-S3 USB 缓冲说明](https://docs.espressif.com/projects/esp-idf/en/stable/esp32s3/api-guides/usb-serial-jtag-console.html#data-buffering)
 

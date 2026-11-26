@@ -177,6 +177,24 @@ test('voice traces rotate private files, survive reopening and reject a linked d
   assert.equal((await lstat(previous)).size, 512 * 1024);
 });
 
+test('voice traces keep four older files, oldest dropped first', async t => {
+  const profile = await mkdtemp(join(tmpdir(), 'sion-diagnostic-chain-'));
+  t.after(() => rm(profile, { recursive: true, force: true }));
+  const diagnostics = join(profile, '.stackchan-diagnostics');
+  const filename = join(diagnostics, 'voice.jsonl');
+  const older = n => join(diagnostics, n === 1 ? 'voice.previous.jsonl' : `voice.previous.${n}.jsonl`);
+  await mkdir(diagnostics, { mode: 0o700 });
+  for (let round = 1; round <= 6; round++) {
+    await writeFile(filename, Buffer.alloc(512 * 1024, round), { mode: 0o600 });
+    const store = createVoiceDiagnosticStore(profile, () => assert.fail('store unavailable'));
+    store.write({ event: 'round' });
+    await store.flush();
+  }
+  // Rounds 6, 5, 4, 3 are kept as .previous, .2, .3, .4; rounds 1 and 2 are gone.
+  for (const [n, round] of [[1, 6], [2, 5], [3, 4], [4, 3]]) assert.equal((await readFile(older(n)))[0], round);
+  await assert.rejects(lstat(join(diagnostics, 'voice.previous.5.jsonl')), { code: 'ENOENT' });
+});
+
 test('USB standby ignores ordinary bytes, accepts only an exact fragmented ready line and can be cancelled', async t => {
   const writes=[];
   const host = new Duplex({read(){},write(bytes,_encoding,done){writes.push(bytes.toString('ascii'));done();}});

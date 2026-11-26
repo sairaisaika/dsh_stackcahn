@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { parseSteps } from '../scripts/body_probe.mjs';
+import { envelope, parseSteps, readStepFile, tapZone } from '../scripts/body_probe.mjs';
 
 test('the body probe takes exact steps and rejects anything out of range', () => {
   assert.deepEqual(parseSteps(['status', 'move', '300', '450', '500', 'pause', '1000', 'label', 'upright', 'sample', 'imu', '5', '10', 'ring', '#203040', '1000']), [
@@ -53,4 +53,40 @@ test('the body probe takes exact steps and rejects anything out of range', () =>
   for (const bad of [[], ['move', '1281', '450', '500'], ['move', '0', '49', '500'], ['move', '0', '450', '99'],
     ['sample', 'camera', '1', '1'], ['sample', 'imu', '0', '1'], ['ring', 'red', '1000'], ['dance']])
     assert.throws(() => parseSteps(bad));
+});
+
+test('guided-session steps: prompts, photo, duplex, listen and background recording', () => {
+  assert.deepEqual(parseSteps(['ask', '灯在哪_点那边', '20', 'photo', 'duplex', '1000', '500', '60', '800', 'listen', '你好_Sion', '4000',
+    'bgrecord', 'power,imu', '100', '8000', 'bgwait']), [
+    { kind: 'ask', text: '灯在哪 点那边', seconds: 20 },
+    { kind: 'photo' },
+    { kind: 'duplex', hz: 1000, durationMs: 500, volume: 0.6, afterMs: 800 },
+    { kind: 'listen', text: '你好 Sion', durationMs: 4000 },
+    { kind: 'bgrecord', sensors: ['power', 'imu'], intervalMs: 100, durationMs: 8000 },
+    { kind: 'bgwait' },
+  ]);
+  for (const bad of [['ask', '', '5'], ['ask', 'x', '61'], ['duplex', '1000', '5001', '50', '0'], ['duplex', '1000', '500', '101', '0'],
+    ['listen', 'x', '400'], ['bgrecord', 'power', '10', '1000']])
+    assert.throws(() => parseSteps(bad));
+});
+
+test('a session file is steps per line with comments', () => {
+  assert.deepEqual(readStepFile('# header\nstatus\n#\nask 点一下 10   # answer\n  leds 0 #ffffff 500\n'), ['status', 'ask', '点一下', '10', 'leds', '0', '#ffffff', '500']);
+});
+
+test('a session file can name paths under the repository root', () => {
+  assert.deepEqual(readStepFile('storecrops ${ROOT}/work/c 0', { root: '/r' }), ['storecrops', '/r/work/c', '0']);
+});
+
+test('a tap gives its third of the screen and its angle from the centre', () => {
+  assert.deepEqual(tapZone(10, 120), { zone: 'left', angleDeg: 180 });
+  assert.deepEqual(tapZone(160, 230), { zone: 'middle', angleDeg: 90 });
+  assert.deepEqual(tapZone(310, 120), { zone: 'right', angleDeg: 0 });
+  assert.equal(tapZone(160, 0).angleDeg, 270);
+});
+
+test('the envelope is RMS per 20 ms window and per channel', () => {
+  const frames = 960, pcm = Buffer.alloc(frames * 4);
+  for (let f = 0; f < frames; f++) { pcm.writeInt16LE(f < 480 ? 16384 : 0, f * 4); pcm.writeInt16LE(-8192, f * 4 + 2); }
+  assert.deepEqual(envelope(pcm), [[0.5, 0], [0.25, 0.25]]);
 });

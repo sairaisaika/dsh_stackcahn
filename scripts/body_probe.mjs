@@ -15,13 +15,21 @@
 //   node scripts/body_probe.mjs --out DIR -- torque limp 10000 read pause 1000 read torque release 0
 //   node scripts/body_probe.mjs --out DIR record nfc 100 10000 nfc ndef nfc 0 135   (card events, NDEF, raw pages; read-only)
 //   node scripts/body_probe.mjs --out DIR storedir /abs/frames 0 bank cycle 0 12 50 2 timeline /abs/sweep.json drop all
+//   node scripts/body_probe.mjs --out DIR --steps scripts/sessions/session-a.steps   (one guided session; report: scripts/probe_report.mjs DIR)
+//
+// Steps for guided sessions: "ask TEXT SECONDS" shows a prompt on the body's screen and records where the
+// owner taps (left/middle/right third, and the angle from the centre); "photo" saves one camera JPEG;
+// "duplex HZ MS VOLUME AFTER_MS" records both input channels (microphone, echo reference) around a tone;
+// "listen TEXT MS" has the Mac say the text aloud while the body records; "bgrecord SENSORS INTERVAL MS"
+// records sensors while the following steps run, until "bgwait".
 //
 // Put the steps after "--" whenever an angle is negative.
 // Steps run in the order given on one connection. "pause MS" waits; "label
 // TEXT" writes a marker line (for example the pose the owner is holding).
 import { appendFileSync, chmodSync, existsSync, mkdirSync, readdirSync, readFileSync } from 'node:fs';
 import { homedir } from 'node:os';
-import { join, resolve } from 'node:path';
+import { dirname, join, resolve } from 'node:path';
+import { fileURLToPath } from 'node:url';
 import { parseArgs } from 'node:util';
 import { setTimeout as sleep } from 'node:timers/promises';
 import { performance } from 'node:perf_hooks';
@@ -33,6 +41,7 @@ import { tonesToPcm, pcmToWav, levels, withSilentTail } from '../src/sound.mjs';
 import { loadImageRgb565 } from '../src/display-image.mjs';
 import { readType2 } from '../src/nfc-ndef.mjs';
 import { writeFileSync } from 'node:fs';
+import { spawn } from 'node:child_process';
 
 /** Parse the step list. Exported for tests; no device access. */
 export function parseSteps(words) {
@@ -139,10 +148,56 @@ export function parseSteps(words) {
     else if (word === 'label') {
       if (typeof words[i] !== 'string') throw new Error('label needs text');
       steps.push({ kind: 'label', text: words[i++] });
-    } else throw new Error(`unknown step ${word}`);
+    } else if (word === 'ask') {   // ask WORDS_WITH_UNDERSCORES SECONDS: prompt on the screen, the owner answers with one tap
+      const text = String(words[i++] ?? '').replaceAll('_', ' ');
+      if (!text) throw new Error('ask needs text');
+      steps.push({ kind: 'ask', text, seconds: int(words[i++], 1, 60, 'seconds') });
+    } else if (word === 'photo') steps.push({ kind: 'photo' });
+    else if (word === 'duplex') {   // duplex HZ MS VOLUME AFTER_MS: record mic + reference while a tone plays
+      steps.push({ kind: 'duplex', hz: int(words[i++], 20, 12000, 'hz'), durationMs: int(words[i++], 10, 5000, 'durationMs'),
+        volume: int(words[i++], 0, 100, 'volume percent') / 100, afterMs: int(words[i++], 0, 5000, 'afterMs') });
+    } else if (word === 'listen') {   // listen WORDS_WITH_UNDERSCORES MS: the Mac says the text aloud while the body records
+      const text = String(words[i++] ?? '').replaceAll('_', ' ');
+      if (!text) throw new Error('listen needs text');
+      steps.push({ kind: 'listen', text, durationMs: int(words[i++], 500, 30000, 'durationMs') });
+    } else if (word === 'bgrecord') {   // bgrecord SENSORS INTERVAL_MS DURATION_MS: like record, but the next steps run meanwhile
+      const sensors = String(words[i++] ?? '').split(',');
+      steps.push({ kind: 'bgrecord', sensors, intervalMs: int(words[i++], 20, 10000, 'intervalMs'), durationMs: int(words[i++], 100, 30000, 'durationMs') });
+    } else if (word === 'bgwait') steps.push({ kind: 'bgwait' });
+    else throw new Error(`unknown step ${word}`);
   }
   if (!steps.length) throw new Error('no steps');
   return steps;
+}
+
+/** Read a session file: one step per line, words split on spaces; '#' followed by a space (or alone)
+ * starts a comment, so colours like #ffffff stay steps. Exported for tests. */
+export function readStepFile(text, { root } = {}) {
+  if (root) text = text.replaceAll('${ROOT}', root);
+  return text.split('\n').map(line => line.replace(/(^|\s)#(\s.*)?$/, '').trim()).filter(Boolean).flatMap(line => line.split(/\s+/));
+}
+
+/** Where a tap sits on the 320×240 screen: thirds for answers, a compass angle from the centre for
+ * "tap toward the light" (0° = right, 90° = down, as screen coordinates go). Exported for tests. */
+export function tapZone(x, y) {
+  const zone = x < 107 ? 'left' : x < 214 ? 'middle' : 'right';
+  const angleDeg = Math.round((Math.atan2(y - 120, x - 160) * 180 / Math.PI + 360) % 360);
+  return { zone, angleDeg };
+}
+
+/** 20 ms RMS windows per channel of interleaved stereo PCM16. Exported for tests. */
+export function envelope(pcm, { rate = 24000, channels = 2, windowMs = 20 } = {}) {
+  const per = Math.round(rate * windowMs / 1000), frames = Math.floor(pcm.length / (2 * channels));
+  const out = Array.from({ length: channels }, () => []);
+  for (let start = 0; start < frames; start += per) {
+    const end = Math.min(frames, start + per);
+    for (let c = 0; c < channels; c++) {
+      let sum = 0;
+      for (let f = start; f < end; f++) { const v = pcm.readInt16LE((f * channels + c) * 2) / 32768; sum += v * v; }
+      out[c].push(Math.round(Math.sqrt(sum / (end - start)) * 10000) / 10000);
+    }
+  }
+  return out;
 }
 
 function snapshotOf(connection, sensor) {
@@ -159,8 +214,12 @@ async function main() {
     // Acquire the pairing identity and build the transport, then stop before
     // opening the serial port: nothing is sent to the device.
     dry: { type: 'boolean', default: false },
+    // A session file (see scripts/sessions/): its steps run before any given on the command line.
+    steps: { type: 'string' },
+    // The Mac voice for 'listen' steps.
+    voice: { type: 'string', default: 'Eddy (Chinese (China mainland))' },
   } });
-  const steps = parseSteps(positionals);
+  const steps = parseSteps([...(values.steps ? readStepFile(readFileSync(values.steps, 'utf8'), { root: resolve(dirname(fileURLToPath(import.meta.url)), '..') }) : []), ...positionals]);
   if (!values.out) throw new Error('--out DIR is required');
   const out = resolve(values.out);
   mkdirSync(out, { recursive: true, mode: 0o700 });
@@ -197,7 +256,15 @@ async function main() {
     await connection.start({ signal });
     log('session-started', { tookMs: Math.round(performance.now() - t) });
     // Microphone frames arrive while the session is active; read them (kept only during a 'mic' step).
-    let micTap = null;
+    let micTap = null, background = null;
+    const playTone = async step => {
+      const pcm = withSilentTail(tonesToPcm([{ frequencyHz: step.hz, durationMs: step.durationMs, volume: step.volume }]));
+      for (let at = 0; at < pcm.length; at += 480) {
+        const frame = Buffer.alloc(480); pcm.copy(frame, 0, at, Math.min(at + 480, pcm.length));
+        await connection.sendOutput(frame);
+      }
+      await connection.drainOutput({ signal });
+    };
     const drain = (async () => {
       let frames = 0;
       try {
@@ -296,12 +363,7 @@ async function main() {
             result = await connection.setRingFrames({ frames: [{ leds, durationMs: step.durationMs }] }, { signal });
           } else if (step.kind === 'volume') result = await connection.setVolume(step.volume, { signal });
           else if (step.kind === 'tone') {
-            const pcm = withSilentTail(tonesToPcm([{ frequencyHz: step.hz, durationMs: step.durationMs, volume: step.volume }]));
-            for (let at = 0; at < pcm.length; at += 480) {
-              const frame = Buffer.alloc(480); pcm.copy(frame, 0, at, Math.min(at + 480, pcm.length));
-              await connection.sendOutput(frame);
-            }
-            await connection.drainOutput({ signal });
+            await playTone(step);
             result = { played: true };
           } else if (step.kind === 'mic') {
             const chunks = [];
@@ -324,6 +386,85 @@ async function main() {
           log(`${step.kind}-failed`, { target: step, tookMs: Math.round(performance.now() - t), code: error?.code ?? String(error),
             ...(error?.pollStats ? { pollStats: error.pollStats } : {}) });
         }
+      } else if (['ask', 'photo', 'duplex', 'listen', 'bgrecord', 'bgwait'].includes(step.kind)) {
+        t = performance.now();
+        try {
+          if (step.kind === 'ask') {
+            // The owner reads the prompt on the body itself and answers with one tap; the tap's place is the answer.
+            console.error(`\n>>> 屏幕提问：${step.text}（${step.seconds} 秒内点一下屏幕）\n`);
+            await connection.showText({ text: step.text, area: 'full', durationMs: step.seconds * 1000 }, { signal });
+            const local = new AbortController();
+            const stopLocal = () => local.abort();
+            signal.addEventListener('abort', stopLocal, { once: true });
+            const recording = connection.recordSensors({ sensors: ['screenTouch'], intervalMs: 100, durationMs: step.seconds * 1000 },
+              { signal: local.signal }).catch(() => null);
+            let tap = null;
+            const begun = performance.now();
+            while (!signal.aborted && performance.now() - begun < step.seconds * 1000 + 200) {
+              tap = connection.recording?.samples?.find(s => s.sensor === 'screenTouch' && s.value?.phase === 'down') ?? null;
+              if (tap || (!connection.recording && performance.now() - begun > 300)) break;
+              await sleep(30, undefined, { signal }).catch(() => {});
+            }
+            local.abort();
+            await recording;
+            signal.removeEventListener('abort', stopLocal);
+            await connection.clearDisplay({ signal }).catch(() => {});
+            log('ask', { text: step.text, seconds: step.seconds, answered: !!tap, afterMs: tap?.t ?? null,
+              ...(tap ? { x: tap.value.x, y: tap.value.y, ...tapZone(tap.value.x, tap.value.y) } : {}) });
+          } else if (step.kind === 'photo') {
+            const photo = await connection.captureCamera({ signal });
+            const path = join(out, `photo-${Date.now()}.jpg`);
+            writeFileSync(path, photo.jpeg, { mode: 0o600 });
+            log('photo', { tookMs: Math.round(performance.now() - t), path, width: photo.width, height: photo.height, bytes: photo.jpeg.length });
+          } else if (step.kind === 'duplex') {
+            // Both input channels (microphone and the codec's echo reference) around one tone: shows what the
+            // speaker really played, how much of it the microphone hears, and anything played after the end.
+            const chunks = [];
+            const bytes = () => chunks.reduce((n, c) => n + c.length, 0);
+            micTap = pcm => chunks.push(Buffer.from(pcm));
+            await sleep(300, undefined, { signal }).catch(() => {});
+            const toneAt = bytes();
+            await playTone(step);
+            const drainedAt = bytes();
+            await sleep(step.afterMs, undefined, { signal }).catch(() => {});
+            micTap = null;
+            const pcm = Buffer.concat(chunks);
+            const path = join(out, `duplex-${step.hz}hz-v${Math.round(step.volume * 100)}-${Date.now()}.wav`);
+            writeFileSync(path, pcmToWav(pcm), { mode: 0o600 });
+            const windowBytes = 24000 * 0.02 * 2 * 2;
+            log('duplex', { target: step, tookMs: Math.round(performance.now() - t), path, windowMs: 20,
+              toneStartWindow: Math.floor(toneAt / windowBytes), drainedWindow: Math.floor(drainedAt / windowBytes),
+              toneWindows: Math.round(step.durationMs / 20), ...levels(pcm), envelope: envelope(pcm) });
+          } else if (step.kind === 'listen') {
+            // The Mac speaks a known sentence; the body's microphone records it, for recognition checks later.
+            const chunks = [];
+            micTap = pcm => chunks.push(Buffer.from(pcm));
+            await sleep(300, undefined, { signal }).catch(() => {});
+            const speaker = spawn('say', ['-v', values.voice, step.text], { stdio: 'ignore' });
+            const spoken = new Promise(done => speaker.once('exit', code => done(code)));
+            await sleep(step.durationMs, undefined, { signal }).catch(() => {});
+            const sayExit = await Promise.race([spoken, sleep(100).then(() => { speaker.kill(); return 'killed'; })]);
+            micTap = null;
+            const pcm = Buffer.concat(chunks);
+            const path = join(out, `listen-${Date.now()}.wav`);
+            writeFileSync(path, pcmToWav(pcm), { mode: 0o600 });
+            log('listen', { target: step, tookMs: Math.round(performance.now() - t), path, voice: values.voice, sayExit, ...levels(pcm) });
+          } else if (step.kind === 'bgrecord') {
+            if (background) throw new Error('one background recording at a time');
+            background = connection.recordSensors(step, { signal }).then(
+              result => log('bgrecord', { target: step, result: { ...result,
+                counts: Object.fromEntries(step.sensors.map(k => [k, result.samples.filter(s => s.sensor === k).length])) } }),
+              error => log('bgrecord-failed', { target: step, code: error?.code ?? String(error), missing: error?.missing }));
+            log('bgrecord-started', { target: step });
+          } else {
+            await background;
+            background = null;
+            log('bgwait', { tookMs: Math.round(performance.now() - t) });
+          }
+        } catch (error) {
+          log(`${step.kind}-failed`, { target: step, tookMs: Math.round(performance.now() - t), code: error?.code ?? String(error),
+            ...(step.kind === 'photo' ? { camera: connection.cameraSnapshot?.() } : {}) });
+        }
       } else if (step.kind === 'ring') {
         t = performance.now();
         try {
@@ -341,6 +482,7 @@ async function main() {
       } else if (step.kind === 'pause') await sleep(step.ms, undefined, { signal }).catch(() => {});
       else if (step.kind === 'label') log('label', { text: step.text });
     }
+    if (background) await background;
     t = performance.now();
     await connection.stop({ signal }).catch(error => log('stop-failed', { code: error?.code ?? String(error) }));
     log('session-stopped', { tookMs: Math.round(performance.now() - t), micFrames: await Promise.race([drain, sleep(500).then(() => null)]) });

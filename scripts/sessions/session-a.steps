@@ -1,0 +1,173 @@
+# Guided body session A (2026-11-27 draft). See wiki/device-test-batch.md.
+#
+#   node scripts/body_probe.mjs --out <dir> --steps scripts/sessions/session-a.steps
+#   node scripts/probe_report.mjs <dir>
+#
+# The body asks on its own screen; the owner answers with one tap (left / middle / right third,
+# or "tap toward" for directions). DSH's voice service must be off while this runs.
+# ${ROOT} is the repository root. "label" lines mark sections for the report. Nothing here writes flash, NVS or settings;
+# the volume changes apply to this session (the device's Save button is not touched).
+
+# --- 0 baseline: what the body reports at rest (automatic) ---
+label section:baseline
+status
+record imu,headTouch,ambient,power,battery 200 5000
+mic 3000
+
+# --- 1 audio self-check: speaker -> own microphone and echo reference (automatic, ~40 s) ---
+label section:audio-volume
+volume 30
+duplex 1000 600 50 800
+volume 50
+duplex 1000 600 50 800
+volume 70
+duplex 1000 600 50 800
+volume 90
+duplex 1000 600 50 800
+volume 100
+duplex 1000 600 50 800
+ask 刚才五声由轻到响。从哪一声开始刺耳或破音？_左=都还好_中=最后一两声_右=中间就开始 20
+label section:audio-frequency
+volume 70
+duplex 250 400 50 600
+duplex 500 400 50 600
+duplex 2000 400 50 600
+duplex 4000 400 50 600
+duplex 8000 400 50 600
+label section:audio-tail
+duplex 1000 200 50 1500
+duplex 1000 200 50 1500
+duplex 1000 200 50 1500
+ask 最后三声短音，每声结尾有没有多出一小段回音？_左=没有_右=有 15
+label section:audio-current
+volume 100
+bgrecord power 100 5000
+pause 500
+duplex 1000 2500 90 500
+bgwait
+volume 60
+
+# --- 2 the body listens: the Mac speaks known sentences (automatic, keep the room quiet) ---
+label section:listen
+ask 接下来_Mac_会读几句话给机器人听，请保持安静。准备好点一下屏幕 30
+listen Sion，你好 3000
+listen 今天下午三点提醒我给妈妈打电话 5000
+listen 把灯调成蓝色，然后向左转头 5000
+listen 我刚才说的数字是：七、二、九、四、零 5000
+mic 3000
+
+# --- 3 light ring geometry: one LED at a time, tap toward it (owner, ~1.5 min) ---
+label section:leds
+leds 0 #ffffff 10000
+ask 朝亮着的那颗灯的方向，点屏幕的边缘 10
+leds 1 #ffffff 10000
+ask 朝亮着的那颗灯的方向，点屏幕的边缘 10
+leds 2 #ffffff 10000
+ask 朝亮着的那颗灯的方向，点屏幕的边缘 10
+leds 3 #ffffff 10000
+ask 朝亮着的那颗灯的方向，点屏幕的边缘 10
+leds 4 #ffffff 10000
+ask 朝亮着的那颗灯的方向，点屏幕的边缘 10
+leds 5 #ffffff 10000
+ask 朝亮着的那颗灯的方向，点屏幕的边缘 10
+leds 6 #ffffff 10000
+ask 朝亮着的那颗灯的方向，点屏幕的边缘 10
+leds 7 #ffffff 10000
+ask 朝亮着的那颗灯的方向，点屏幕的边缘 10
+leds 8 #ffffff 10000
+ask 朝亮着的那颗灯的方向，点屏幕的边缘 10
+leds 9 #ffffff 10000
+ask 朝亮着的那颗灯的方向，点屏幕的边缘 10
+leds 10 #ffffff 10000
+ask 朝亮着的那颗灯的方向，点屏幕的边缘 10
+leds 11 #ffffff 10000
+ask 朝亮着的那颗灯的方向，点屏幕的边缘 10
+leds 0 #000000 20
+
+# --- 4 ambient light / proximity: where the sensor is and its range (owner) ---
+label section:ambient
+ask 用手掌盖住屏幕上方，盖好后用另一只手点屏幕 20
+record ambient 750 4000
+ask 把手拿开，然后点屏幕 15
+record ambient 750 4000
+
+# --- 5 infrared: receive from a remote, then send (owner, phone camera for the send) ---
+label section:ir-receive
+ask 拿遥控器对准机器人。点屏幕后，在_8_秒内连按几下遥控器任意键 20
+record infrared 100 8000
+label section:ir-send
+ask 打开手机相机对准机器人正面。点屏幕后看取景框里有没有紫白色的闪光 30
+ir 0 69
+pause 400
+ir 0 69
+pause 400
+ir 0 69
+ask 手机里看到闪光了吗？_左=看到_右=没看到 15
+
+# --- 6 NFC (v78 retry): card on 5 reads, card off 2 reads (owner) ---
+label section:nfc-on
+ask 把卡放到_NFC_的位置，放好后点屏幕 30
+record nfc 100 3000
+nfc ndef
+nfc ndef
+nfc ndef
+nfc ndef
+nfc ndef
+label section:nfc-off
+ask 把卡拿开，然后点屏幕 20
+nfc ndef
+nfc ndef
+record nfc 100 2000
+
+# --- 7 camera: first real photos; also data for head tracking (owner) ---
+label section:camera
+ask 请站在机器人正前方、脸对着它。点屏幕后_2_秒拍照 30
+pause 2000
+photo
+ask 请往你的左边走一步，脸仍对着它。点屏幕后_2_秒拍照 30
+pause 2000
+photo
+ask 请往你的右边走两步，脸仍对着它。点屏幕后_2_秒拍照 30
+pause 2000
+photo
+
+# --- 8 head motion: free swing, then a gentle hold (stall rule), with current (owner) ---
+label section:motion-free
+move 0 350 800
+bgrecord power,imu 100 6000
+pause 500
+move 500 350 1200
+move -500 350 1500
+move 0 350 1200
+bgwait
+label section:motion-stall
+ask 准备用手轻轻扶住头，不让它转。点屏幕，1_秒后它会试着向右转 30
+pause 1000
+bgrecord power 100 6000
+move 600 350 1500
+read
+pause 2000
+read
+bgwait
+ask 松开手。刚才它是很快放弃用力，还是一直在顶？_左=很快放弃_右=一直在顶 20
+move 0 350 1000
+
+# --- 9 fish tank: character-only crops at 30 / 45 / 60 fps (owner watches) ---
+label section:fishtank-store
+storecrops ${ROOT}/work/active/v75-frames/render/turn-crops 0
+label section:fishtank-30
+ask 接下来看鱼缸里的她转身，看完回答顺不顺。点屏幕开始 30
+timeline ${ROOT}/work/active/v75-frames/render/turn-crops-30fps.json
+ask 顺吗？_左=顺_中=有点卡_右=很卡 15
+label section:fishtank-45
+timeline ${ROOT}/work/active/v75-frames/render/turn-crops-45fps.json
+ask 这次呢？_左=顺_中=有点卡_右=很卡 15
+label section:fishtank-60
+timeline ${ROOT}/work/active/v75-frames/render/turn-crops-60fps.json
+ask 这次呢？_左=顺_中=有点卡_右=很卡 15
+drop all
+
+# --- end ---
+label section:end
+clear
+status

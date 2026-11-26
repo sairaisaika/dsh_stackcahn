@@ -296,6 +296,8 @@
 
 本次空间回收涉及 52 套历史构建。按收据核对镜像、ELF 和配置后，清除了约 22.5 GiB 可重建的编译对象和中间库，随后再次核对发布产物、分区表、启动器和 map 的摘要。新构建用 `work/active/` 开独立目录，旧构建的中间文件从锁定输入重建。另回收了五代未被活动指针引用的隔离语音环境，约 5.1 GiB，保留了活动环境及失败诊断日志。
 
+2026-11-26 第二次瘦身：`work/` 下 221 个旧构建（v15–v73 时期）只保留产物——固件 `.bin`、ELF、map、sdkconfig、日志、JSON 收据、截图和录音，共 11.5 GB，逐个文件 SHA-256 核对后放到外接 SSD 上的归档目录 `work-archive/`；原位置改成指向那里的软链接，旧路径照常能打开。删掉的是约 49.8 GB 编译中间文件、复制的源码树和工具链副本，删除前又核对了一遍归档。每个条目旁边有 `<名字>.ARCHIVE-MANIFEST.json`，列出保留文件的大小和摘要，以及删掉了多少。构建仍用的目录（`idf-tools`、`esp-idf-stock-v5.5.4`、`firmware-build`、`host-tests` 等）留在内置盘。外接 SSD 没插上时，这些旧路径打不开，但不影响构建和测试。
+
 ## 图示编写与变更复审
 
 依据 [WikiSkill #72](https://github.com/sairaisaika/projectWikiSkill/pull/72) 和 [图示编写规范](https://github.com/sairaisaika/projectWikiSkill/blob/8f7b049ac52b9e4b38ac1cff95208f6af83d4c2d/project-wiki/references/diagram-framework.md#author-at-project-section-and-page-scope) 维护 [六类图示](diagrams.md)。项目入口展示责任架构，新系统边界或跨角色章节先写清要回答的问题并选图。接口调用用时序，业务分支用流程，事件与守卫用状态，持久记录用数据模型，进程和连接用部署。导航页沿用功能页的图。

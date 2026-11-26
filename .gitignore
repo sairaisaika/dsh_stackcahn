@@ -1,18 +1,29 @@
-# Build and Release Folders
-bin-debug/
-bin-release/
-[Oo]bj/
-[Bb]in/
+# Local data: trial logs, flash backups, pairing material, recordings, models.
+.local/
+recordings/
+models/
+.env*
 
-# Other files and folders
-.settings/
+# Build and scratch output (firmware builds, QEMU runs, trials).
+work/
+firmware/**/build/
+firmware/**/managed_components/
+firmware/**/sdkconfig
+firmware/**/sdkconfig.old
+*.elf
+*.map
 
-# Executables
-*.swf
-*.air
-*.ipa
-*.apk
+# Character artwork: not cleared for public redistribution (see README).
+# Keep it local; it is regenerated from your own sources.
+firmware/whale-sources/*.jpg
+firmware/whale-sources/*.png
+firmware/agent/whale_assets.bin
+wiki/assets/whale-avatar-preview.png
 
-# Project files, i.e. `.project`, `.actionScriptProperties` and `.flexProperties`
-# should NOT be excluded as they contain compiler settings and other important
-# information for Eclipse / Flash Builder.
+# Tooling
+node_modules/
+__pycache__/
+*.pyc
+.dsh-mattskillsdeck-cache/
+.DS_Store
+*.tgz

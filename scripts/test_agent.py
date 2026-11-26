@@ -15,6 +15,7 @@ parser.add_argument('--session-probe-output', type=Path, help='Export the test-o
 args = parser.parse_args()
 subprocess.run([sys.executable,str(root/'scripts/test_agent_display.py')],check=True)
 subprocess.run([sys.executable,str(root/'scripts/test_enter_dsh.py')],check=True)
+subprocess.run([sys.executable,str(root/'scripts/test_boot_selector_pek.py')],check=True)
 subprocess.run([sys.executable,str(root/'scripts/test_agent_capacity.py')],check=True)
 subprocess.run([sys.executable,str(root/'scripts/test_agent_camera.py')],check=True)
 subprocess.run([sys.executable,str(root/'scripts/test_agent_motion.py')],check=True)

@@ -1,0 +1,22 @@
+sequenceDiagram
+    participant Chip as Sion Si12T
+    participant Sample as 设备采样与手势记录
+    participant Link as 认证会话与传输
+    participant Host as Mac 快照与投影
+    participant Tool as 所选 DSH 会话工具
+    participant UI as 所有者设置页
+    loop 音频会话已接通
+        Chip-->>Sample: HT1 三分区逐次等级
+        Note over Chip,Sample: 确认松开时完成手势<br/>读数失败或间隔达到 150 ms<br/>丢弃未完成手势
+        Sample-->>Link: HT2 当前代次未送达的手势
+        alt 队列有余量
+            Link-->>Host: HT3 摸头事件
+        else 音频优先
+            Note over Sample,Link: 三秒以内保留，恢复后重试
+        end
+        Note over Chip,Sample: 启动、采样中断及完成后<br/>连续松开满 150 ms 才接受接触
+    end
+    Host-->>Tool: HT4 最近四次，供当前会话查询
+    Host-->>UI: HT5 最近一次手势及等级
+    Note over Host,UI: 头顶手势用于互动与状态显示<br/>开麦、停止和 Home 走基础控件
+    Note over Sample,Host: 停止和退出使旧代次手势不可见

@@ -1,0 +1,26 @@
+sequenceDiagram
+    participant Chip as Sion LTR‑553
+    participant Worker as 独立采样任务
+    participant Agent as 设备会话
+    participant Mac as Mac StackChan 插件
+    participant DSH as DSH 设置与所选会话
+    Mac->>Agent: 认证并开始会话
+    Agent->>Worker: 开启当前代次采样
+    Worker->>Chip: 校验身份并进入测量模式
+    loop 活动会话
+        Worker->>Chip: 轮询和读取新数据
+        Chip-->>Worker: 光线与近接原始计数
+        Agent->>Worker: 读取有效的当前代次快照
+        Agent-->>Mac: 可选队列上报 ambient_state
+        DSH->>Mac: 读取设备能力
+        Mac-->>DSH: 当前读数或不可用
+    end
+    alt Mac发出 Stop
+        Mac->>Agent: Stop
+    else 用户在机身点 Home
+        Note over Agent: 设备本地执行 Home
+    end
+    Agent->>Worker: 作废读数并请求待机
+    Worker->>Chip: 关闭测量并读回确认
+    Worker-->>Agent: 释放完成或故障
+    Note over Agent,Mac: 释放完成后才报告设备已停止

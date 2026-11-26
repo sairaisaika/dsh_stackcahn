@@ -1,0 +1,30 @@
+sequenceDiagram
+    autonumber
+    participant U as 用户
+    participant B as 候选启动器
+    participant F as 原厂 OTA A/B
+    participant D as 独立 DSH.AGENT
+    Note over U,D: V43 真实候选启动器在 QEMU 验证至应用入口。真机待验收。
+    U->>B: 开机或软件重启
+    alt 冷启动，按住再松开，独立镜像通过验证
+        B->>D: 直接加载 test 区
+        Note over B,F: 跳过原厂 OTA 选槽，NEW 或 PENDING_VERIFY 保持原样
+        opt 结束语音
+            U->>D: 说停止
+            D->>D: 释放后留在 DSH 空闲
+        end
+        U->>D: 上滑 Home，回独立入口
+        U->>D: Factory assistant，再确认 Return
+        alt 资源未释放或维护仍忙
+            D-->>U: 等待关闭，需重新确认
+        else 释放完毕
+            D->>B: 软件重启
+            B->>F: 按原 otadata 和镜像校验选槽
+        end
+    else 普通开机、软件重启或镜像预检失败
+        B->>F: 隐藏 test，只按原厂规则启动
+        Note over B,F: 原厂应用 OTA 保留原 A/B 轮换
+    end
+    Note over B,F: 首次原厂加载把 NEW 标为 PENDING_VERIFY
+    Note over B,F: 未经应用确认再次进原厂，IDF 标为 ABORTED 并选择另一有效槽
+    Note over U,F: 双原厂槽失效，需进入维护

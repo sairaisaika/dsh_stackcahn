@@ -1,0 +1,20 @@
+CONFIG_ESPTOOLPY_FLASHMODE_DIO=y
+CONFIG_FLASH_NONE_ASSETS=y
+# CONFIG_FLASH_DEFAULT_ASSETS is not set
+# Protocol owns USB Serial/JTAG; preserve UART logs without USB mirroring.
+CONFIG_ESP_CONSOLE_SECONDARY_NONE=y
+# CONFIG_ESP_CONSOLE_SECONDARY_USB_SERIAL_JTAG is not set
+# USB audio authenticates without a network time dependency. Keep renegotiation off.
+CONFIG_MBEDTLS_PSK_MODES=y
+CONFIG_MBEDTLS_KEY_EXCHANGE_ECDHE_PSK=y
+CONFIG_MBEDTLS_CHACHA20_C=y
+CONFIG_MBEDTLS_CHACHAPOLY_C=y
+# CONFIG_MBEDTLS_SSL_RENEGOTIATION is not set
+# Application status is carried by UI/protocol. Retain ESP-IDF warnings/errors;
+# high-volume info diagnostics require a separate, capacity-reviewed build.
+# CONFIG_LOG_DEFAULT_LEVEL_INFO is not set
+CONFIG_LOG_DEFAULT_LEVEL_WARN=y
+CONFIG_LOG_MAXIMUM_EQUALS_DEFAULT=y
+# Agent LVGL consumes compiled image descriptors. Camera JPEG is transported
+# to the Mac and never decoded by this display. Keep font fallback and Avatar.
+# CONFIG_LV_USE_LODEPNG is not set

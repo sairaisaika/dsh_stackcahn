@@ -1,0 +1,77 @@
+--- a/bootloader_components/main/bootloader_start.c
++++ b/bootloader_components/main/bootloader_start.c
+@@ -12,6 +12,7 @@
+ #include "esp_rom_gpio.h"
+ #include "esp_rom_sys.h"
+ #include "hal/gpio_ll.h"
++#include "hal/usb_serial_jtag_ll.h"
+ #include "soc/io_mux_reg.h"
+ #include "soc/soc.h"
+ 
+@@ -68,6 +69,52 @@
+     return accepted;
+ }
+ 
++/* Feasibility trial only. USB selects a verified image for this boot. */
++static bool read_usb_entry_request(void)
++{
++    static const uint8_t ready[] = "\nSION-BOOT-READY 1\n";
++    static const uint8_t request[] = "SION-BOOT-AGENT 1\n";
++    enum { POLL_US = 1000, SOF_POLLS = 25, TX_POLLS = 75, REQUEST_POLLS = 600, READY_INTERVAL_POLLS = 100 };
++    uint8_t pending[64];
++    unsigned received = 0;
++
++    // A live MAC USB host should send SOF at least once per frame. Drain the
++    // sticky flag first to ignore a host that disconnected before this boot.
++    usb_serial_jtag_ll_clr_intsts_mask(USB_SERIAL_JTAG_INTR_SOF);
++    for (unsigned wait = 0; ; ++wait) {
++        if (usb_serial_jtag_ll_get_intraw_mask() & USB_SERIAL_JTAG_INTR_SOF) break;
++        if (wait == SOF_POLLS) return false;
++        esp_rom_delay_us(POLL_US);
++    }
++    for (unsigned wait = 0; !usb_serial_jtag_ll_txfifo_writable(); ++wait) {
++        if (wait == TX_POLLS) return false;
++        esp_rom_delay_us(POLL_US);
++    }
++
++    // Bytes enqueued before this boot's greeting cannot choose the mode.
++    usb_serial_jtag_ll_read_rxfifo(pending, sizeof(pending));
++    if (usb_serial_jtag_ll_rxfifo_data_available()) return false;
++    if (usb_serial_jtag_ll_write_txfifo(ready, sizeof(ready) - 1) != sizeof(ready) - 1) return false;
++    usb_serial_jtag_ll_txfifo_flush();
++
++    for (unsigned wait = 0; wait < REQUEST_POLLS; ++wait) {
++        // Opening a tty may clear its initial input. Announce again while
++        // waiting for the first request byte, within the same fixed window.
++        if (!received && wait && wait % READY_INTERVAL_POLLS == 0 && usb_serial_jtag_ll_txfifo_writable()) {
++            if (usb_serial_jtag_ll_write_txfifo(ready, sizeof(ready) - 1) != sizeof(ready) - 1) return false;
++            usb_serial_jtag_ll_txfifo_flush();
++        }
++        unsigned size = usb_serial_jtag_ll_read_rxfifo(pending, sizeof(pending));
++        if (size > sizeof(request) - 1 - received) return false;
++        for (unsigned i = 0; i < size; ++i) {
++            if (pending[i] != request[received++]) return false;
++        }
++        if (received == sizeof(request) - 1) return !usb_serial_jtag_ll_rxfifo_data_available();
++        esp_rom_delay_us(POLL_US);
++    }
++    return false;
++}
++
+ static bool layout_matches(const bootloader_state_t *bs)
+ {
+     return bs->app_count == 2 && bs->factory.size == 0 &&
+@@ -92,8 +139,11 @@
+     }
+ 
+     // Never run the OTA selector during a successful explicit DSH boot.
+-    if (layout_matches(&bs) && esp_rom_get_reset_reason(0) == RESET_REASON_CHIP_POWER_ON &&
+-        read_entry_gesture()) {
++    const int cause = esp_rom_get_reset_reason(0);
++    const bool cold_boot = cause == RESET_REASON_CHIP_POWER_ON;
++    if (layout_matches(&bs) &&
++        ((cold_boot && read_entry_gesture()) ||
++         ((cold_boot || cause == RESET_REASON_CORE_USB_UART) && read_usb_entry_request()))) {
+         if (agent_image_valid(&bs.test)) {
+             // SDK test branch loads and verifies, without OTA sequence writes.
+             // If this second check fails, the SDK resets. A software reset

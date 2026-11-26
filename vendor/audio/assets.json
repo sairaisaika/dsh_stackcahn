@@ -1,0 +1,47 @@
+{
+  "version": 1,
+  "files": [
+    {
+      "path": "localvqe-source.tar.gz",
+      "url": "https://codeload.github.com/localai-org/LocalVQE/tar.gz/7f61cd05095d42e56a135b303f5bb4d761da22b9",
+      "bytes": 15327517,
+      "sha256": "8afcecf160b92e6e80cd4e77c357476597fd8bd741e0d5b9e0bfb55b13e33a67",
+      "license": "Apache-2.0"
+    },
+    {
+      "path": "localvqe-ggml.tar.gz",
+      "url": "https://codeload.github.com/ggml-org/ggml/tar.gz/c044a8eeae2591faa0950c8b5e514cbc4bbfc4ca",
+      "bytes": 2749389,
+      "sha256": "d5bdf6f42a60368ee6a73076492a880d66f9e4435bffc82992ea6dd28b70bb0d",
+      "license": "MIT"
+    },
+    {
+      "path": "localvqe-v1.3-4.8M-f32.gguf",
+      "url": "https://huggingface.co/LocalAI-io/LocalVQE/resolve/29ca38495cba9d6393a92a4dd890f28dd81f758d/localvqe-v1.3-4.8M-f32.gguf",
+      "bytes": 19268160,
+      "sha256": "c4f7912485c32cfc206c536f2f050b52513f2f613fdbc616391f6b26ab1d51ec",
+      "license": "Apache-2.0"
+    },
+    {
+      "path": "speexdsp-1.2.1.tar.gz",
+      "url": "https://downloads.xiph.org/releases/speex/speexdsp-1.2.1.tar.gz",
+      "bytes": 922584,
+      "sha256": "8c777343e4a6399569c72abc38a95b24db56882c83dbdb6c6424a5f4aeb54d3d",
+      "license": "BSD-3-Clause"
+    },
+    {
+      "path": "silero_vad.jit",
+      "url": "https://raw.githubusercontent.com/snakers4/silero-vad/5cd7945676eb32225748052e2e6a0580e4686a08/src/silero_vad/data/silero_vad.jit",
+      "bytes": 2272526,
+      "sha256": "e1122837f4154c511485fe0b9c64455f7b929c96fbb8d79fbdb336383ebd3720",
+      "license": "MIT"
+    },
+    {
+      "path": "silero-LICENSE",
+      "url": "https://raw.githubusercontent.com/snakers4/silero-vad/5cd7945676eb32225748052e2e6a0580e4686a08/LICENSE",
+      "bytes": 1075,
+      "sha256": "2e63e9a38b6e8fc0c7bc37ce174caca1862870856c6daf5697cfb785e925520b",
+      "license": "MIT"
+    }
+  ]
+}

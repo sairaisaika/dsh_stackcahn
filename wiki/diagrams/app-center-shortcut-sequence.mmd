@@ -1,0 +1,30 @@
+sequenceDiagram
+    autonumber off
+    actor User as 用户
+    participant Catalog as 官方 HTTPS 目录
+    participant Center as 原厂 App Center
+    participant NVS as 原厂 NVS
+    participant Setup as Setup
+    participant Menu as Mooncake 主菜单
+    participant SDK as ESP-IDF OTA
+    participant DSH as 配套 DSH.AGENT
+    Catalog-->>Center: SC1 应用 ID 和镜像摘要
+    User->>Center: SC2 首次下载或打开已安装镜像
+    Center->>SDK: 校验镜像，选择待启动槽
+    SDK-->>Center: 选择成功
+    Center->>NVS: 复核原厂和候选，存两份摘要
+    opt SC3 修改可见性
+        User->>Setup: 设置 App Visibility
+        Setup->>NVS: 写独立显示开关
+    end
+    Menu->>NVS: 读取显示开关
+    User->>Menu: SC4 点击 DSH.AGENT
+    Menu->>NVS: 读取启动记录
+    alt 本地记录、镜像和两个槽状态均匹配
+        Menu->>SDK: 重验并选择待启动槽
+        SDK->>DSH: 原版启动器加载候选
+        User->>DSH: SC5 Home
+        DSH->>Menu: 释放资源，原版回滚后进入主菜单
+    else 缺记录、摘要失效或系统更新在途
+        Menu-->>User: 留在状态页，Home 回菜单
+    end

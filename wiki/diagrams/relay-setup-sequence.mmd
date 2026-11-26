@@ -1,0 +1,28 @@
+sequenceDiagram
+    participant U as DSH 设置页
+    participant H as StackChan Host
+    participant P as Mac 私有配置档
+    participant S as Sion USB 维护
+    U->>H: RR18 检查本机配置，验证 owner
+    H->>P: 在配对锁内核对当前身份和设备文件
+    H->>P: 校验 Mac 文件和配对 ID
+    H-->>U: 两份文件的状态与待写入版本
+    U->>H: 显式选择 USB，检查设备
+    H->>S: RR19 读取当前设备和 Relay 版本
+    S-->>H: 返回脱敏状态
+    H-->>U: 设备状态
+    Note over U,S: 用户在 Sion 点 Allow USB，在页面勾选后发起写入或撤销
+    U->>H: RR20 提交已检查的版本与单次授权
+    H->>P: 核对用户检查过的待写入版本
+    H->>S: 重新核对设备版本和授权窗口
+    alt 版本已变、配对不同或授权失效
+        H-->>U: 拒绝，重新检查
+    else 已核对
+        H->>S: 一次写入或撤销，读回确认
+        alt 收到已核对结果
+            S-->>H: 已核对的最新状态
+            H-->>U: 显示成功并清除勾选
+        else 写入结果未知
+            H-->>U: 清除旧设备状态，先只读检查
+        end
+    end

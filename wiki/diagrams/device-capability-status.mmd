@@ -1,0 +1,14 @@
+flowchart TB
+    HELLO["M1 · 当前连接的认证 hello<br/>能力版本、本次字幕请求；断线后未知"]
+    STATE["M2 · 当前 epoch 的设备状态<br/>相机／动作／灯环许可、忙碌、故障"]
+    RUNTIME["M3 · Mac 运行状态<br/>语音阶段、已生效回复方式、改动与资源状态"]
+    PROJECT["M4 · Host 生成能力快照 v1<br/>能力、当前使用条件与回复方式"]
+    TOOL["M5 · DSH 原生只读工具<br/>工具策略与所选／冻结会话"]
+    REMOTE["M6 · DSH 设置 Remote<br/>仅 owner 读取"]
+    MODEL["M7 · 选定 DSH 会话<br/>按需查询设备能力"]
+    UI["M8 · StackChan 设置面板<br/>显示能力与限制；失联显示未知"]
+    HELLO -->|"D1 · 已声明／未声明／未知"| PROJECT
+    STATE -->|"D2 · 过期许可转未知"| PROJECT
+    RUNTIME -->|"D3 · 能否马上执行"| PROJECT
+    PROJECT -->|"D4 · 读取同一结构"| TOOL -->|"D6 · 结构化工具返回"| MODEL
+    PROJECT -->|"D5 · VoiceSnapshot 字段"| REMOTE -->|"D7 · 设置刷新"| UI

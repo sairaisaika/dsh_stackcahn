@@ -1,0 +1,30 @@
+flowchart TB
+  OPEN["U1 · 用户打开 StackChan 设置或枚举端口"]
+  READ["只读操作<br/>枚举与选择只填草稿"]
+  ACTION["U1 · 选端口和设备编号后<br/>主动检查／写入／撤销"]
+  GATE{"U2 · owner 请求<br/>Host 政策允许此次操作？"}
+  PORT{"U3 · 托管环境重新枚举<br/>当前端口匹配 ESP USB Serial/JTAG？"}
+  STOP["拒绝请求<br/>未打开串口"]
+  NO_LAN{"写入无局域网地址的配对？"}
+  SUPPORT{"只读查询<br/>设备支持省略地址？"}
+  KEEP["保留原身份和候选<br/>提示填写局域网地址"]
+  JOURNAL["U4 · 写入前保留 pending<br/>检查操作只查询设备状态"]
+  DEV["U5 · SIONA1 核对设备身份<br/>写入再核对 Allow USB"]
+  RESPONSE{"设备结果明确？"}
+  CONFIRM["U4 + U1 · 持久化新状态<br/>显示已确认的结果"]
+  RECOVER["U4 + U1 · 保留待核对状态<br/>刷新后检查，不重放"]
+  OPEN --> READ
+  ACTION -->|"U1 → U2 · 请求级许可"| GATE
+  GATE -->|"拒绝"| STOP
+  GATE -->|"默认托管"| PORT
+  PORT -->|"不匹配"| STOP
+  PORT -->|"匹配"| NO_LAN
+  GATE -->|"安装管理员显式允许"| NO_LAN
+  NO_LAN -->|"是"| SUPPORT
+  NO_LAN -->|"否"| JOURNAL
+  SUPPORT -->|"已确认"| JOURNAL
+  SUPPORT -->|"旧版不支持"| KEEP
+  JOURNAL -->|"托管打开前再检查端口"| DEV
+  DEV --> RESPONSE
+  RESPONSE -->|"已确认"| CONFIRM
+  RESPONSE -->|"写入结果未知"| RECOVER

@@ -1,0 +1,48 @@
+sequenceDiagram
+    autonumber
+    participant C as 请求调用方（生产待接）
+    participant E as MotionEngine
+    participant W as 唯一动作 worker
+    participant P as EspMotionPort / SCS / UART / 供电
+    Note over C,P: V36 · 核心与资源组合已测，不代表实体动作；许可默认关闭
+    C->>E: AllowMotion(true)，Begin(epoch,target,now)
+    E-->>C: 单请求 ticket / 拒绝
+    W->>E: Pump(now)
+    E->>P: Open（失败也需释放）
+    P-->>E: 成功 / 失败
+    alt 打开失败或票据已取消
+        E->>E: Releasing；不再下发 Move
+    else 打开成功且票据仍有效
+        W->>E: Pump(now)
+        E->>P: Move(target)
+        P-->>E: 接受 / 失败；不代表到位
+        alt 下发失败或票据已取消
+            E->>E: Releasing
+        else 接受且仍有效
+            loop Moving：至少间隔 50 ms，直到结束
+                W->>E: Pump(now)
+                E->>P: Poll(sample)
+                opt I/O 期间另一控制调用取消
+                    C->>E: Cancel / 禁用 / Stop(fence)
+                    E->>E: 作废 ticket 和结果；保留资源
+                end
+                P-->>E: 新鲜两轴反馈 / Pending / Failed
+                E->>E: 已取消则丢弃；否则检查到位、错误与期限
+            end
+        end
+    end
+    Note over E,P: Open/Move 期间也可取消；已选中的一次 I/O 仍可能完成
+    W->>E: Pump(now)
+    E->>P: Release（取消后续命令、确认两轴禁用、释放资源）
+    alt Pending / Failed
+        P-->>E: 等待 / Fault
+        C->>E: status()
+        E-->>C: Releasing / Fault；禁止新动作
+        Note over E,P: Fault 需显式 Stop/Cancel 或关闭许可重试释放
+    else Done
+        P-->>E: 已释放
+        E->>E: Idle；仅当前未取消票据可发布
+        C->>E: Take(epoch,ticket)
+        E-->>C: 一次性结果 / 拒绝旧结果
+    end
+    Note over C,P: 结果坐标是释放前观测；禁用驱动不保证断力后的机械姿态

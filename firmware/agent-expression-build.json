@@ -1,0 +1,55 @@
+{
+  "profile": "independent-expression-v13",
+  "inputs": {
+    "firmware/upstream.lock.json": "413849a09de901b87eb18027b1d21ed14bb6ddc642303d29e7a64fd16311da8a",
+    "firmware/agent-dependencies.lock": "e6a2f730e9430fbc4d6d7637c6368aab08302ad290cb452b07ad81482ce278f7",
+    "scripts/prepare_agent.py": "ed215b7ad52c519ba536084f470e70580e5f26bca151aadcf4850bb45a87f5ec",
+    "scripts/prepare_firmware.py": "653be6546be0469a9ccc637d7d80ddca7d96265f31ffacefe7a7352f75e1d54a",
+    "scripts/build_agent.py": "b1bac5cd8b9822c2abf2ac63266cfe285faa84c5fd86fe40e2be912ec4020cfa",
+    "firmware/agent/agent_network.cc": "abcb66074acf3e0c10bf08585e7e2a80125a2f696cc9677d55f01946ff6aecde",
+    "firmware/agent/agent_network.h": "237e7040a80a55c9f7f43f588977f959d24578cd25077816dd468b38597cbd71",
+    "firmware/agent/agent_network_queue.h": "5a52b7ae6d2eb4ad3b5ad91fff7ce529f8416c9ba166f779ab42756cd59850ab",
+    "firmware/agent/agent_session.cc": "773e9a5fbb8343200c9b5b5bc96aa22456f2a95ebe58dd82f6b0eca759b59caf",
+    "firmware/agent/agent_session.h": "1688733903d3b79f94a703a14026be87400d7af65eef31ea25b4e237a7806d95",
+    "firmware/agent/agent_wire.h": "419d2eda0161a2fd7d8f9cfc7b4a469e42133730bdc4481c8404268b4987c9a5",
+    "firmware/agent/audio_engine.h": "bf7a3c574c685ccf9e5078d12a6f5e4ef3c01d6c05b60b1cd689707b6689fc47",
+    "firmware/agent/audio_runtime.cc": "dcc3acc3a812bc74872b8c402c95a90bb2a36cdffdefa7c6247a92f7daad2981",
+    "firmware/agent/audio_runtime.h": "a96dbf461ed17baaa05df7c17957033442f5383500d522c079df5c5234d8933f",
+    "firmware/agent/component.cmake": "8329ad83e974716ae41892b76846513165f6b86b1c4b79d2bf92693e7023915f",
+    "firmware/agent/core_audio_bridge.cc": "5d5740a2e23f70090d3bd202f67191a2c43a1c30db0495f7b83c2535c54414b3",
+    "firmware/agent/device_main.cc": "7272b743b64f1fd26d8106e3bb28fcf005996692c424f2f0036a6ae5d9686de4",
+    "firmware/agent/expression_port.h": "b6e85447e7b3f54e9c9b48bb55b51317723ef2956d7d11d7e79c0b3a3a0a7112",
+    "firmware/agent/pairing_service.cc": "d73cc2bc6a91150a90afce7970d95911bee9ca5a1486eb5989a166908df09773",
+    "firmware/agent/pairing_service.h": "b009bc9a0706895f3cbcec8bb9d8a9c1fa10dfd6911c1b6ae01d0b852c63c488",
+    "firmware/agent/pairing_store.cc": "c28ea84312a8e884382b8fb1790cf1d1b42d3e3db5593540ef1c17ee2bdaab4a",
+    "firmware/agent/pairing_store.h": "cf87cbb2001fd3a7d1d762ed2f5c2be190f79a3ee2415915fccd6094bbc6f4ee",
+    "firmware/agent/pairing_usb.cc": "afc95fb762cb0f9326ebc090782dc26981428f66482d44727836d669c715354b",
+    "firmware/agent/pairing_usb.h": "9529624092b3ebeef015034fcb5c750a32ab467fa4b1e851e3911e58c64d4d02",
+    "firmware/agent/preferences.h": "79e3fd2eb80a64bbfe5e44c7fc31544c441037dacf2cd699020817637b533ac2",
+    "firmware/agent/sdkconfig.defaults": "6661f3ef034413867845c816de32761a79cd58912263eaf7863f99633d70daa6",
+    "firmware/agent/session_lifecycle.h": "6b83c1e9ec9e5f9031d1f9843f3e77ef1c8b1ac9a55fbf8eec6641c9a0945aaa",
+    "firmware/agent/settings_store.cc": "61c53c264f99f369e1fc4f9bd2e9e2cebbbd40df0278c426ac9a413389f896ca",
+    "firmware/agent/storage_guard.cc": "0a6dbf8283eaf92388dbe4629aabcce9dfd7df76d4e7fe4ca81ec4c761160890",
+    "firmware/agent/storage_guard.h": "806617492aa9c4591f47f81b9d916a286d48aae1e16a18e95818df0c334a476c",
+    "firmware/overlay/sion/pairing_config.h": "08e9ca59c6b6c115f72b54ca874dcb8c91e639afe7c12a401bcf16d474a2c1f1",
+    "firmware/overlay/sion/endpoint_policy.h": "c068c50d142fa10e65e0bff98bb37937902321042520cb38d65f5635f6835fa5"
+  },
+  "idf": "fff9895c82d744c7237be8847347bdd1b07c6643",
+  "preparedReceiptSha256": "817c5e95fd394e93b3a04fd890b47744e4c6c389a9cc3ff4ee2ea9b43131541e",
+  "artifacts": {
+    "stack-chan.bin": {
+      "sha256": "c8a284fa8b32a795776a72b949d9a4169adf10c71e9c6f078aaaadc86568414c",
+      "bytes": 2278928
+    },
+    "stack-chan.elf": {
+      "sha256": "428f9e189cc894a60c238e975b8ce14423dc476d7b4f8e5d87adaa23318456e0",
+      "bytes": 70361024
+    },
+    "agent-sdkconfig": {
+      "sha256": "6da46cf14ae9158538f219ffc0ff15f6136400d15aed157c9603ead514b4f0bf",
+      "bytes": 153362
+    }
+  },
+  "installable": false,
+  "hardwareValidated": false
+}

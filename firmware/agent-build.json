@@ -1,0 +1,31 @@
+{
+  "profile": "independent-entry-v1",
+  "inputs": {
+    "firmware/upstream.lock.json": "413849a09de901b87eb18027b1d21ed14bb6ddc642303d29e7a64fd16311da8a",
+    "scripts/prepare_agent.py": "092e3ca6091355409ef9e0d067e983e15720528450540c216f3562ab79233802",
+    "scripts/prepare_firmware.py": "653be6546be0469a9ccc637d7d80ddca7d96265f31ffacefe7a7352f75e1d54a",
+    "firmware/agent/component.cmake": "ddd126501244db63353fdd8ef821bc0b8f715e731ce41941eeb1dc0c5c92cb78",
+    "firmware/agent/device_main.cc": "243f3bcf95de0f22e042306e9844a47c60ad93dae523ef9c74f7703a1c590311",
+    "firmware/agent/sdkconfig.defaults": "fc53934be9ff2b9273cc27eb774630817bfff774f3db3185109b2f0145f290bb",
+    "firmware/agent/session_lifecycle.h": "2cfc7a44e88b91cbfe9a68642eb756bc9459bdbd134a80d22ab4c60d61eebed7",
+    "firmware/agent/storage_guard.cc": "4170ac6ab6c8c9bb72cea430f3e5a627a0e190de1fc3167678cc8e6fd1d2e0b0"
+  },
+  "idf": "fff9895c82d744c7237be8847347bdd1b07c6643",
+  "preparedReceiptSha256": "1f5be2052c48c25ee7fe153e90768ec34c7070e8618de2b60635729f426cbac2",
+  "artifacts": {
+    "stack-chan.bin": {
+      "sha256": "fba2577bf39388a0267ed775f95239d2ef807301752cfd47e27f2743ecde7e12",
+      "bytes": 2216272
+    },
+    "stack-chan.elf": {
+      "sha256": "0ca5cd4b879eb86c0caba0444fb784e948e14b4eed9448bda1d05fe4147afdae",
+      "bytes": 68894916
+    },
+    "agent-sdkconfig": {
+      "sha256": "7db83e3106c051f32838a1f9865c4b1d827f926c3b1a0525da703dc9515f03a5",
+      "bytes": 153186
+    }
+  },
+  "installable": false,
+  "hardwareValidated": false
+}

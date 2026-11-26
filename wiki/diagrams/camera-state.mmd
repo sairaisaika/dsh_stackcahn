@@ -1,0 +1,21 @@
+stateDiagram-v2
+    direction TB
+    [*] --> Idle
+    state "Idle / 空闲" as Idle
+    state "Opening / 打开" as Opening
+    state "Capturing / 采集" as Capturing
+    state "Closing / 关闭" as Closing
+    state "Idle + ready / 待取结果" as Ready
+    state "Fault / 释放失败" as Fault
+    Idle --> Opening: Begin [许可及请求条件通过]
+    Idle --> Idle: Begin 不满足条件 → 拒绝
+    Opening --> Capturing: Open 成功且有效
+    Opening --> Closing: 分配或 Open 失败 / 取消 / 到期
+    Capturing --> Capturing: Read Pending 且未到期
+    Capturing --> Closing: 完成 / 错误 / 取消 / 到期
+    Closing --> Fault: Close 失败
+    Closing --> Ready: 关闭成功且有效 / 发布结果
+    Closing --> Idle: 关闭成功且已取消 / 丢弃
+    Ready --> Idle: 匹配 Take / 移交
+    Ready --> Idle: 禁用相机或有效 Stop / 丢弃结果
+    Fault --> Closing: Stop 或撤销许可 / 请求重试

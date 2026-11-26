@@ -1,0 +1,333 @@
+diff --git a/firmware/main/Kconfig.projbuild b/firmware/main/Kconfig.projbuild
+index c19aa66358fa37d8b234522c9a4592792b4e1b42..8550dbaeb42643b0a688f666ee1cfca43473aaaf 100644
+--- a/firmware/main/Kconfig.projbuild
++++ b/firmware/main/Kconfig.projbuild
+@@ -1026,3 +1026,17 @@ menu "BLE prph Configuration"
+             Use this option to enable resolving peer's address.
+ 
+ endmenu
++
++menu "StackChan App Center"
++
++config STACKCHAN_APP_CENTER_REOPEN
++    bool "Allow opening a matching installed App Center image"
++    default n
++    depends on BOOTLOADER_APP_ROLLBACK_ENABLE && !BOOTLOADER_APP_ANTI_ROLLBACK
++    help
++        Enable the Open action for catalog entries with reopenImageSha256.
++        The device checks the inactive image and the factory rollback target.
++        Anti-rollback builds can erase an image when setting a boot target and
++        do not expose this action.
++
++endmenu
+diff --git a/firmware/main/apps/app_app_center/app_app_center.cpp b/firmware/main/apps/app_app_center/app_app_center.cpp
+index 5719d8aef6d1888ba3d8ac0c24fb011fac059fd4..5aa6dcfa81cfad55de3e2fa2c5e94e9b4143b980 100644
+--- a/firmware/main/apps/app_app_center/app_app_center.cpp
++++ b/firmware/main/apps/app_app_center/app_app_center.cpp
+@@ -69,25 +69,48 @@ void AppAppCenter::onOpen()
+ void AppAppCenter::onRunning()
+ {
+     if (_launch_requested) {
+-        GetHAL().launchApp(_app_list[_selected_index].firmwareUrl, [&](int percent) {
+-            LvglLockGuard lock;
+-            if (_app_install_page) {
+-                _app_install_page->setProgress(percent);
+-            }
+-        });
+-    }
++        _launch_requested = false;
++        const auto& app = _app_list[_selected_index];
++        const char* message;
++        if (_open_installed) {
++            GetHAL().openInstalledApp(app);
++            message = "Installed app could not be opened. Back to check again, or Download to reinstall.";
++        } else if (GetHAL().canDownloadApp(app)) {
++            GetHAL().launchApp(app.firmwareUrl, [&](int percent) {
++                LvglLockGuard lock;
++                if (_app_install_page) {
++                    _app_install_page->setProgress(percent);
++                }
++            });
++            message = "Download failed. Try again.";
++        } else {
++            message = "Download unavailable. Finish any system update before retrying.";
++        }
+ 
+-    LvglLockGuard lock;
++        LvglLockGuard lock;
++        _app_install_page.reset();
++        _open_installed = false;
++        _app_detail_page = std::make_unique<view::AppDetailPage>(app);
++        _app_detail_page->setLaunchError(message);
++    }
+ 
+-    if (_app_list_page) {
+-        _selected_index = _app_list_page->isSelected();
+-        if (_selected_index >= 0) {
+-            mclog::tagInfo(getAppInfo().name, "selected index: {}", _selected_index);
+-            _app_list_page.reset();
+-            _app_detail_page = std::make_unique<view::AppDetailPage>(_app_list[_selected_index]);
+-        }
++    int selected;
++    {
++        LvglLockGuard lock;
++        selected = _app_list_page ? _app_list_page->isSelected() : -1;
++    }
++    if (selected >= 0 && static_cast<size_t>(selected) < _app_list.size()) {
++        const auto& app = _app_list[selected];
++        // Verifying image bytes can be slow. Keep the display task unlocked.
++        const bool open_installed = GetHAL().canOpenInstalledApp(app);
++        LvglLockGuard lock;
++        _selected_index = selected;
++        _app_list_page.reset();
++        _open_installed = open_installed;
++        _app_detail_page = std::make_unique<view::AppDetailPage>(app, open_installed);
+     }
+ 
++    LvglLockGuard lock;
+     if (_app_detail_page) {
+         if (_app_detail_page->checkBack()) {
+             mclog::tagInfo(getAppInfo().name, "back to app list");
+@@ -96,7 +119,9 @@ void AppAppCenter::onRunning()
+         } else if (_app_detail_page->checkLaunch()) {
+             mclog::tagInfo(getAppInfo().name, "launch app");
+             _app_detail_page.reset();
+-            _app_install_page = std::make_unique<view::AppInstallPage>(_app_list[_selected_index]);
++            if (!_open_installed) {
++                _app_install_page = std::make_unique<view::AppInstallPage>(_app_list[_selected_index]);
++            }
+             _launch_requested = true;
+         }
+     }
+@@ -117,6 +142,7 @@ void AppAppCenter::onClose()
+     _app_install_page.reset();
+     _selected_index   = -1;
+     _launch_requested = false;
++    _open_installed   = false;
+ 
+     view::destroy_home_indicator();
+     view::destroy_status_bar();
+diff --git a/firmware/main/apps/app_app_center/app_app_center.h b/firmware/main/apps/app_app_center/app_app_center.h
+index 688b4d94e3e312502ff7fcb4088f020bf4a608fc..aed1d53103ee9201a589a787a1de90584cb86e62 100644
+--- a/firmware/main/apps/app_app_center/app_app_center.h
++++ b/firmware/main/apps/app_app_center/app_app_center.h
+@@ -28,4 +28,5 @@ private:
+     std::unique_ptr<view::AppInstallPage> _app_install_page;
+     int _selected_index    = -1;
+     bool _launch_requested = false;
++    bool _open_installed = false;
+ };
+diff --git a/firmware/main/apps/app_app_center/view/view.h b/firmware/main/apps/app_app_center/view/view.h
+index 7c4291268bb9c64cee4671f3409c17961f2674d7..977037311c6c1b55f07da14a043e9d1c3a1f9eea 100644
+--- a/firmware/main/apps/app_app_center/view/view.h
++++ b/firmware/main/apps/app_app_center/view/view.h
+@@ -104,7 +104,7 @@ private:
+  */
+ class AppDetailPage {
+ public:
+-    AppDetailPage(const app_center::AppInfo_t& app_info)
++    AppDetailPage(const app_center::AppInfo_t& app_info, bool open_installed = false)
+     {
+         _panel = std::make_unique<uitk::lvgl_cpp::Container>(lv_screen_active());
+         _panel->setBgColor(lv_color_hex(0xFFFAD6));
+@@ -166,7 +166,7 @@ public:
+         _btn_launch->setBgColor(lv_color_hex(0xFFAC6D));
+         _btn_launch->setBorderWidth(0);
+         _btn_launch->setShadowWidth(0);
+-        _btn_launch->label().setText("Launch");
++        _btn_launch->label().setText(open_installed ? "Open" : app_info.reopenImageSha256.empty() ? "Launch" : "Download");
+         _btn_launch->label().setTextFont(&lv_font_montserrat_20);
+         _btn_launch->label().setTextColor(lv_color_hex(0x47330A));
+         _btn_launch->onClick().connect([this]() { _is_launch = true; });
+@@ -181,6 +181,11 @@ public:
+         return false;
+     }
+ 
++    void setLaunchError(const char* message)
++    {
++        _desc_label->setText(message);
++    }
++
+     bool checkLaunch()
+     {
+         if (_is_launch) {
+diff --git a/firmware/main/hal/app_center_reopen.h b/firmware/main/hal/app_center_reopen.h
+new file mode 100644
+index 0000000000000000000000000000000000000000..70a8390529cdd2ac9fc8a193f09969c10898352b
+--- /dev/null
++++ b/firmware/main/hal/app_center_reopen.h
+@@ -0,0 +1,73 @@
++// SPDX-License-Identifier: MIT
++#pragma once
++
++#include <esp_ota_ops.h>
++#include <array>
++#include <cstdint>
++#include <optional>
++#include <string_view>
++
++namespace app_center {
++
++using ImageDigest = std::array<uint8_t, 32>;
++
++inline std::optional<ImageDigest> parseReopenDigest(std::string_view text)
++{
++    ImageDigest digest;
++    if (text.size() != 2 * digest.size()) return std::nullopt;
++    const auto digit = [](char c) {
++        if (c >= '0' && c <= '9') return c - '0';
++        if (c >= 'a' && c <= 'f') return c - 'a' + 10;
++        return -1;
++    };
++    for (size_t i = 0; i < digest.size(); ++i) {
++        const auto high = digit(text[2 * i]);
++        const auto low = digit(text[2 * i + 1]);
++        if (high < 0 || low < 0) return std::nullopt;
++        digest[i] = static_cast<uint8_t>(16 * high + low);
++    }
++    return digest;
++}
++
++inline bool confirmedAppIsSelected(const esp_partition_t* running)
++{
++    const auto* selected = esp_ota_get_boot_partition();
++    esp_ota_img_states_t state;
++    return running && selected && running->address == selected->address &&
++           esp_ota_get_state_partition(running, &state) == ESP_OK && state == ESP_OTA_IMG_VALID;
++}
++
++inline const esp_partition_t* availableInactiveAppSlot()
++{
++    const auto* running = esp_ota_get_running_partition();
++    if (esp_ota_get_app_partition_count() != 2 || !confirmedAppIsSelected(running) ||
++        (running->subtype != ESP_PARTITION_SUBTYPE_APP_OTA_0 && running->subtype != ESP_PARTITION_SUBTYPE_APP_OTA_1)) {
++        return nullptr;
++    }
++    const auto* target = esp_ota_get_next_update_partition(running);
++    return target && target->address != running->address && target->subtype == (running->subtype ^ 1) ? target : nullptr;
++}
++
++inline const esp_partition_t* installedAppToReopen(std::string_view imageSha256)
++{
++    const auto expected = parseReopenDigest(imageSha256);
++    if (!expected) return nullptr;
++    const auto* target = availableInactiveAppSlot();
++    esp_ota_img_states_t state;
++    ImageDigest digest;
++    if (!target || esp_ota_get_state_partition(target, &state) != ESP_OK || state != ESP_OTA_IMG_ABORTED ||
++        esp_partition_get_sha256(target, digest.data()) != ESP_OK || digest != *expected) {
++        return nullptr;
++    }
++    return availableInactiveAppSlot() == target ? target : nullptr;
++}
++
++// The App Center and Setup update actions run on the same application task.
++// Call only from that task, with no OTA writer active.
++inline bool selectInstalledApp(std::string_view imageSha256)
++{
++    const auto* target = installedAppToReopen(imageSha256);
++    return target && esp_ota_set_boot_partition(target) == ESP_OK;
++}
++
++}  // namespace app_center
+diff --git a/firmware/main/hal/hal.h b/firmware/main/hal/hal.h
+index 529c456069112d69ac3a27444819a5464d9dce6e..bf98c92376a93c814809fd65f741341782acd986 100644
+--- a/firmware/main/hal/hal.h
++++ b/firmware/main/hal/hal.h
+@@ -84,6 +84,7 @@ struct AppInfo_t {
+     std::string iconUrl;
+     std::string description;
+     std::string firmwareUrl;
++    std::string reopenImageSha256;
+ };
+ 
+ using AppInfoList_t = std::vector<AppInfo_t>;
+@@ -283,6 +284,9 @@ public:
+     /* -------------------------------- App center ------------------------------- */
+     app_center::AppInfoList_t fetchAppList();
+     void launchApp(std::string_view url, std::function<void(int)> onProgress);
++    bool canDownloadApp(const app_center::AppInfo_t& app);
++    bool canOpenInstalledApp(const app_center::AppInfo_t& app);
++    void openInstalledApp(const app_center::AppInfo_t& app);
+ 
+     /* --------------------------------- EzData --------------------------------- */
+     void startEzDataService(std::function<void(std::string_view)> onStartLog);
+diff --git a/firmware/main/hal/hal_app_center.cpp b/firmware/main/hal/hal_app_center.cpp
+index adcf54b751978d8d1850cabb2c93e292bd3067ea..109ec9a973d49036fe6756d3f6b03de04698d856 100644
+--- a/firmware/main/hal/hal_app_center.cpp
++++ b/firmware/main/hal/hal_app_center.cpp
+@@ -4,6 +4,11 @@
+  * SPDX-License-Identifier: MIT
+  */
+ #include "hal.h"
++#include "sdkconfig.h"
++#if CONFIG_STACKCHAN_APP_CENTER_REOPEN
++#include "app_center_reopen.h"
++#include <esp_system.h>
++#endif
+ #include "utils/ota/ota.h"
+ #include "utils/secret_logic/secret_logic.h"
+ #include <mooncake_log.h>
+@@ -36,8 +41,9 @@ app_center::AppInfoList_t Hal::fetchAppList()
+     auto &board  = Board::GetInstance();
+     auto network = board.GetNetwork();
+ 
++    const auto catalog_url = get_app_info_list_url();
+     auto http = network->CreateHttp(0);
+-    if (!http->Open("GET", get_app_info_list_url())) {
++    if (!http->Open("GET", catalog_url)) {
+         mclog::tagError(_tag, "failed to open http connection");
+         return app_list;
+     }
+@@ -101,6 +107,14 @@ app_center::AppInfoList_t Hal::fetchAppList()
+                 info.firmwareUrl = url;
+             }
+ 
++#if CONFIG_STACKCHAN_APP_CENTER_REOPEN
++            if (catalog_url.starts_with("https://")) {
++                if (const char* sha = get_json_string(item, {"reopenImageSha256"}); sha && app_center::parseReopenDigest(sha)) {
++                    info.reopenImageSha256 = sha;
++                }
++            }
++#endif
++
+             app_list.push_back(info);
+         }
+     } else {
+@@ -124,4 +138,36 @@ void Hal::launchApp(std::string_view url, std::function<void(int)> onProgress)
+     mclog::tagInfo(_tag, "launching app from url: {}", url);
+     _on_progress = onProgress;
+     start_ota_update(url.data(), ota_callback);
++    _on_progress = nullptr;
++}
++
++bool Hal::canDownloadApp(const app_center::AppInfo_t& app)
++{
++#if CONFIG_STACKCHAN_APP_CENTER_REOPEN
++    if (!app.reopenImageSha256.empty()) {
++        return !app.firmwareUrl.empty() && app_center::availableInactiveAppSlot() != nullptr;
++    }
++#endif
++    return !app.firmwareUrl.empty();
++}
++
++bool Hal::canOpenInstalledApp(const app_center::AppInfo_t& app)
++{
++#if CONFIG_STACKCHAN_APP_CENTER_REOPEN
++    return app_center::installedAppToReopen(app.reopenImageSha256) != nullptr;
++#else
++    (void)app;
++    return false;
++#endif
++}
++
++void Hal::openInstalledApp(const app_center::AppInfo_t& app)
++{
++#if CONFIG_STACKCHAN_APP_CENTER_REOPEN
++    if (app_center::selectInstalledApp(app.reopenImageSha256)) {
++        esp_restart();
++    }
++#else
++    (void)app;
++#endif
+ }

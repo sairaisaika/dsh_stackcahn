@@ -1,0 +1,29 @@
+{
+  "profile": "independent-boot-selector-usb-entry-experiment",
+  "stockSdkBase": true,
+  "idf": "735507283d5b2f9fb363a1901172dbd9e847945d",
+  "inputs": {
+    "scripts/build_agent_selector.py": "96f84401f9e00c542697d8baaabd12e832355e688b18a9785b8573e175b9e0bc",
+    "firmware/boot-selector/CMakeLists.txt": "744582b9f6e8e368bbc07fbdf36307cc91103f2e0ef23c232352882a4304e619",
+    "firmware/boot-selector/bootloader_components/main/CMakeLists.txt": "d42176767d6aca3848b99fedc2b4b1de9565fff2d807b6e1a07adc46da3bd82c",
+    "firmware/boot-selector/bootloader_components/main/bootloader_start.c": "6449f20228b10bd5cc7df84af46185138f6b0d64542953f2ed181494644e38b1",
+    "firmware/boot-selector/main/CMakeLists.txt": "1e33e2b6c6a395ed0d2b94aebe57f75ef9f529cb01d4dc21897d0e4f96527a31",
+    "firmware/boot-selector/sdkconfig.stock.defaults": "3fe1f0e25c4921c82f803adf448f907ef4b70cd2447750308005a9de55199efe",
+    "firmware/boot-selector/stock-sdk.lock.json": "48991176d835db86b3af88f49810d8b2edf73237090e62d2d66623b9d2fe6f16",
+    "firmware/boot-selector-usb-entry.patch": "fdf903a4cd40ce87516ff73e2c0d906cec98dfa313052c6833e62780ac2b37ce"
+  },
+  "patchedSourceSha256": "a442f22796f2ede93e1472ee4f88fe53166f8c06b7d5b94ca67a755ab845900a",
+  "artifacts": {
+    "bootloader.bin": {
+      "bytes": 21696,
+      "sha256": "e506672ddb0fecd0e4f833ca3ff224893f65c831d711ece50593a0f4b1968978"
+    },
+    "bootloader.elf": {
+      "bytes": 612528,
+      "sha256": "f73d6b5d603227c98b138bde5a516fe83d924ad62d89b558e1029321fc889243"
+    }
+  },
+  "offlineQemuSha256": "2531b26ebb3310e851dda442552cfd8b05518577b4a969e3860ae91a052e6f76",
+  "offlineRecoveryQemuSha256": "766d9e51008d21bb1ad64262e105bb34561e57060c15fa24384a2d3b0c27deb6",
+  "hardwareValidated": false
+}

@@ -1,0 +1,42 @@
+{
+  "profile": "independent-pairing-v7",
+  "inputs": {
+    "firmware/upstream.lock.json": "413849a09de901b87eb18027b1d21ed14bb6ddc642303d29e7a64fd16311da8a",
+    "scripts/prepare_agent.py": "c873e41739fb45b99418837e18ddb3255c23d631bfe36d8df30a76b4b7e16685",
+    "scripts/prepare_firmware.py": "653be6546be0469a9ccc637d7d80ddca7d96265f31ffacefe7a7352f75e1d54a",
+    "firmware/agent/audio_engine.h": "003c3f1efc7065a174f66ceabd623ac336034514ef52fa7391b9e463b380af86",
+    "firmware/agent/audio_runtime.cc": "2fe918ac8d0d15f5dcc797b0b8ce55a33468c6cc86150633f012d6da0d931c0f",
+    "firmware/agent/audio_runtime.h": "a96dbf461ed17baaa05df7c17957033442f5383500d522c079df5c5234d8933f",
+    "firmware/agent/component.cmake": "04eda64904e0c34e365dd4aec6fa3f2938e1a60baa5730572e56bdf2e34e6ad9",
+    "firmware/agent/core_audio_bridge.cc": "98313dd87ba657a7d47601e297c6a3eb637a03b1a524c38ccadcbbed4d30c7dc",
+    "firmware/agent/device_main.cc": "4b87933d521e84503005c27f1c6e715952f1b092c6c95474aeff128e71443402",
+    "firmware/agent/pairing_store.cc": "c28ea84312a8e884382b8fb1790cf1d1b42d3e3db5593540ef1c17ee2bdaab4a",
+    "firmware/agent/pairing_store.h": "cf87cbb2001fd3a7d1d762ed2f5c2be190f79a3ee2415915fccd6094bbc6f4ee",
+    "firmware/agent/preferences.h": "79e3fd2eb80a64bbfe5e44c7fc31544c441037dacf2cd699020817637b533ac2",
+    "firmware/agent/sdkconfig.defaults": "fc53934be9ff2b9273cc27eb774630817bfff774f3db3185109b2f0145f290bb",
+    "firmware/agent/session_lifecycle.h": "6b83c1e9ec9e5f9031d1f9843f3e77ef1c8b1ac9a55fbf8eec6641c9a0945aaa",
+    "firmware/agent/settings_store.cc": "61c53c264f99f369e1fc4f9bd2e9e2cebbbd40df0278c426ac9a413389f896ca",
+    "firmware/agent/storage_guard.cc": "0a6dbf8283eaf92388dbe4629aabcce9dfd7df76d4e7fe4ca81ec4c761160890",
+    "firmware/agent/storage_guard.h": "806617492aa9c4591f47f81b9d916a286d48aae1e16a18e95818df0c334a476c",
+    "firmware/overlay/sion/pairing_config.h": "08e9ca59c6b6c115f72b54ca874dcb8c91e639afe7c12a401bcf16d474a2c1f1",
+    "firmware/overlay/sion/endpoint_policy.h": "c068c50d142fa10e65e0bff98bb37937902321042520cb38d65f5635f6835fa5"
+  },
+  "idf": "fff9895c82d744c7237be8847347bdd1b07c6643",
+  "preparedReceiptSha256": "481421176682d9a45b13be3931e4b1714b2f53c506d5819158173ef48b91bc6b",
+  "artifacts": {
+    "stack-chan.bin": {
+      "sha256": "35c90f36e87e90d19aa973b146d23d2ef7c5d8a284875349acfbc53ff0982408",
+      "bytes": 2228800
+    },
+    "stack-chan.elf": {
+      "sha256": "1f9b7b98bfab309a65580d59766fabd1db4803a6939b69f2e057f6063570cfe1",
+      "bytes": 69211384
+    },
+    "agent-sdkconfig": {
+      "sha256": "7db83e3106c051f32838a1f9865c4b1d827f926c3b1a0525da703dc9515f03a5",
+      "bytes": 153186
+    }
+  },
+  "installable": false,
+  "hardwareValidated": false
+}

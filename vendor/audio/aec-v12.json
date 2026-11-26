@@ -1,0 +1,12 @@
+{
+  "version": 1,
+  "files": [
+    {
+      "path": "localvqe-v1.2-1.3M-f32.gguf",
+      "url": "https://huggingface.co/LocalAI-io/LocalVQE/resolve/29ca38495cba9d6393a92a4dd890f28dd81f758d/localvqe-v1.2-1.3M-f32.gguf",
+      "bytes": 5173088,
+      "sha256": "4856ecf5f522b23fb2bc5caeac81f323c0ef1c4c156a9c7d40a6adbe092ba9ce",
+      "license": "Apache-2.0"
+    }
+  ]
+}

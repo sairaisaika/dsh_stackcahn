@@ -1,0 +1,48 @@
+sequenceDiagram
+    autonumber
+    participant H as Host AgentConnection
+    participant S as 设备 AgentSession
+    participant T as CameraTransfer
+    participant C as CameraEngine / worker
+    participant Q as 预留发送队列
+    Note over H,Q: V33 · 实际 C++/TLS 包络互通已测；Host 解码/附件见 V34；实体传感器仍未验收
+    H->>S: capture_camera(boot, epoch, request)
+    S->>S: 严格字段、认证 Active 租约
+    S->>T: Begin(request, epoch, now)
+    T->>C: Begin：设备本地许可检查
+    C-->>T: ticket；拒绝则返回 camera_error
+    Note over H,C: 后续主路径以许可通过为前提；拒绝不启动采集
+    Note over T,C: worker 采集/实际关闭，见 V31；许可不自动采集
+    S->>T: Tick：先处理音频，再 Pump
+    T->>C: Take(epoch, ticket)
+    C-->>T: 关闭后移交单份 JPEG / 错误
+    T->>Q: CameraText(meta)：为普通消息留 8 条 / 8192 字节
+    alt 队列暂满
+        Q-->>T: false；保留一条回复，后续 Tick 重试
+    else 可接受
+        Q-->>H: camera_meta：长度和声明宽高
+    end
+    loop 每块不超过 1024 原始字节；仅一个在途拉取
+        H->>S: camera_next(request, offset)
+        S->>T: Next：匹配请求与精确 offset
+        S->>T: 音频处理后的 Pump
+        T->>C: RequestValid(epoch, ticket)
+        alt 仍有效
+            T->>Q: 有界 base64 camera_chunk；背压时等待
+            Q-->>H: chunk
+            H->>H: 校验身份、偏移、规范编码、精确块长
+        else 本地许可已撤销 / 超时
+            T->>C: Cancel；等待 Idle 或明确 Fault
+            T->>Q: camera_error
+            Q-->>H: 错误；丢弃全部缓冲，不返回图片
+        end
+    end
+    opt 全部块已校验且请求未失败或取消
+    H->>S: camera_next(total)：全部字节已收齐
+    S->>T: Next + 后续 Pump
+    T->>C: 再检查 ticket 有效性
+    T->>Q: camera_complete（有效时）或 error
+    Q-->>H: 最后确认
+    H->>H: 完成后移交包络；真实解码/附件导入见 V34
+    end
+    Note over H,Q: Stop/Home/断线拒绝 pending 并清缓冲；Host Abort 关闭整个声音连接，不自动重拍

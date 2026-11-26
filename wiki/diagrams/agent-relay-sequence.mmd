@@ -1,0 +1,57 @@
+sequenceDiagram
+    participant E as Sion v35 设备网络任务
+    participant R as 可自托管中继
+    participant M as Mac 语音服务
+    participant D as 既有 DSH 会话
+    M->>M: 显式启动，冻结私有配置与已选会话
+    alt 手动接通
+        M->>R: 用户点接通，Mac 出站 WSS
+    else 所有者开启外出待命
+        loop 等 Sion，单端会合到期后重新加入
+            M->>R: Mac 出站 WSS，麦克风未开启
+        end
+    end
+    E->>E: RR10 按 Relay，预约配对并读取独立配置
+    E->>R: RR11 校时并验证域名、出站 WSS
+    Note over E,R: 先经 USB 物理授权配置；两网真机验收待完成
+    alt 角色凭据不符或同角色已占用
+        R--xE: 拒绝加入
+    else 同一房间两端就绪
+        R-->>E: READY
+        R-->>M: READY
+        M->>R: 内层握手起始标记
+        R->>E: 转发
+        E->>E: RR8 校验 READY 与起始标记
+        E->>R: 内层 TLS 握手
+        R->>M: 转发
+        M->>R: 证明持有配对 PSK
+        R->>E: 转发
+        E->>E: RR12 内层认证成功才发布 Connected
+        Note over E,M: 内层已过 QEMU，ESP 外层状态用 SDK 夹具验证
+        E->>R: 加密 hello
+        R->>M: 转发密文
+        M-->>D: 检查冻结偏好，绑定已选会话
+        M->>R: 本地模型准备后发送内层 Start
+        R->>E: 转发密文，设备开启收音
+        E->>R: 加密 PCM
+        R->>M: 转发密文
+        M-->>D: 本地转写进入已选会话
+        D-->>M: 归属当前回合的回复
+        M->>R: 加密语音与可选字幕
+        R->>E: 转发密文
+        opt 用户停止对话
+            M->>R: 加密 Stop
+            R->>E: 转发密文
+            E->>R: 资源释放后的加密回执
+            R->>M: 转发密文，回到空闲
+        end
+        opt 一端关闭
+            R--xM: 关闭 Host 外层连接
+            R--xE: 关闭设备外层连接
+            Note over E,M: RR13 SDK 和 Wi-Fi 释放后交回配对预约
+        end
+        opt 外出待命且本机资源已释放
+            M->>R: 关闭本次会合，继续等待新连接
+            Note over E,M: Sion 需再次点 Relay；Mac 可随时关闭待命
+        end
+    end

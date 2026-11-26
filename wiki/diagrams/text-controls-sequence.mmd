@@ -1,0 +1,26 @@
+sequenceDiagram
+    participant Touch as 文字页触屏
+    participant App as 独立应用
+    participant Link as 认证连接
+    participant Host as Mac 与所选 DSH
+    participant Captions as 机身字幕
+    participant Audio as 音频任务
+    Touch->>App: TX6 明确点 Start
+    alt 空闲并有麦克风许可
+        App->>Link: TX6 发起上次选择的连接
+        Link->>Host: TX1 设备声明需要字幕
+        Host->>App: 认证连接发起语音会话
+        Host->>Link: TX2 当前回合的字幕
+        Link->>App: TX3 当前代次与正文
+        App->>Captions: TX4 显示可滚动字幕
+    else 禁麦或前次连接仍在清理
+        App-->>Touch: Start 不可用
+    end
+    Touch->>App: TX5 可选调整扬声器静音
+    App->>Audio: TX5 应用扬声器音量
+    Touch->>App: TX7 点 Stop
+    App->>Captions: TX7 清空正文并保留页面
+    App->>Link: TX7 关闭旧连接
+    Link-->>App: TX7 确认旧连接释放
+    App-->>Touch: 允许再次 Start
+    Note over Touch,App: 底边 Home 优先并等资源释放

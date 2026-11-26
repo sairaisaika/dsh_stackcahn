@@ -1,0 +1,34 @@
+sequenceDiagram
+    autonumber
+    participant U as 用户 / 设置页
+    participant R as 原生 Gateway / Remote
+    participant M as ManagedPairing / RuntimeSetup
+    participant P as Python Setup
+    participant V as 隔离 venv / pip
+    participant F as 配置档 Runtime Store
+    Note over U,F: V14 · 临时 profile 离线安装已测；未安装用户 DSH 或设备
+    U->>R: 显式 prepareRuntime(signal)
+    R->>R: 契约与 owner 检查
+    R->>M: 固定操作，不接收路径或权限
+    M->>M: profile 存在；无自定义目录；一次一个操作
+    M->>P: 固定根；探测合格 Python 后启动
+    P->>F: 私有根 / 非阻塞 flock / 读取 active
+    alt 已有活动环境
+        P->>V: 验证实际 prefix / 模块位置 / 版本
+        V-->>P: 验证结果；失败不替换
+    else 首次准备
+        P->>P: 校验随包 wheel SHA-256
+        P->>V: 最终随机目录建 venv；不移动
+        P->>V: 无网络索引安装固定 pySerial wheel
+        P->>V: 验证隔离、实际模块位置和版本
+        V-->>P: 验证成功
+        P->>F: fsync 临时记录 → replace active → fsync 根
+    end
+    P-->>M: 固定结果；释放 flock
+    M->>F: 校验 active，派生解释器与配对目录
+    M-->>R: 使用选定环境重新诊断
+    R-->>U: 环境结果；原设备许可不变
+    Note over M,F: 中断前未发布：保留未激活目录；不得当成功或覆盖旧环境
+    Note over U,F: 发布后取消/丢失回复：先刷新诊断；下次准备验证并复用活动环境
+    U->>M: 卸载 / 取消
+    M->>P: 终止进程组并等待退出；不自动重放安装

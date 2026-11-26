@@ -1,0 +1,35 @@
+sequenceDiagram
+    autonumber
+    participant D as 设备 Camera 页
+    participant C as CameraEngine / Transfer
+    participant S as AgentSession / 预留队列
+    participant H as Host AgentConnection
+    participant R as VoiceRuntime / 原生 Remote
+    participant U as DSH 相机面板
+    Note over D,U: V35 · 许可仍由设备控制；状态观察不授权下一次拍照
+    D->>C: Allow / disable（不自动拍照）
+    C-->>D: 本地许可、硬件关闭、传输与最近错误
+    S->>H: hello：camera=1，camera_status=1
+    loop Idle / Active；变化或两秒心跳
+        S->>C: View：取最新状态
+        C-->>S: permission / phase / busy / error
+        S->>S: 音频与图片后尝试低优先级入队
+        alt 队列拒绝
+            Note over S,H: 不断开音频，不积压历史；下一 Tick 重取最新状态
+        else 队列接受
+            S-->>H: camera_state(boot, epoch, state)
+            H->>H: 检查版本、身份与 epoch
+        end
+    end
+    Note over S,H: started / stopped 回执先于新 epoch 状态；旧 epoch 状态丢弃
+    U->>R: 原生 owner-only snapshot（既有只读刷新）
+    R->>H: cameraSnapshot
+    alt 同 epoch 且收到报告未满六秒
+        H-->>R: 最近许可、阶段与错误
+    else 旧固件 / 断线 / 过期 / 转换中
+        H-->>R: 未支持或未知，不延用旧许可
+    end
+    R->>R: 合入等待照片、验证保存、交付、失败或取消等待
+    R-->>U: 生成 codec 的脱敏状态
+    U->>U: 显示两种状态、设备设置指引与照片保留说明
+    Note over D,U: Stop 作废未提交结果；已保存图片不自动删除。实体屏幕与实际模型未验收。

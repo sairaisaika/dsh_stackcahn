@@ -1,0 +1,27 @@
+sequenceDiagram
+    actor User as DSH 所有者
+    participant Page as StackChan 设置页
+    participant Remote as DSH Remote
+    participant Runtime as 语音运行与环境检查
+    participant Voice as 本地 Kokoro
+    participant Player as 设置页播放器
+    User->>Page: VP1 修改草稿并点生成试听
+    Page->>Remote: VP2 语言、音色、语速
+    Remote->>Runtime: VP3 验证所有者与当前运行状态
+    alt 语音已关闭且环境通过检查
+        Runtime->>Voice: VP4 固定短句和所选音色
+        alt 正常完成
+            Voice-->>Runtime: 24 kHz 单声道 PCM
+            Runtime->>Voice: 等待退出
+            Runtime-->>Remote: VP5 最多 8 秒的内存 WAV
+            Remote-->>Page: 当前请求的结果
+            Page-->>Player: 草稿仍匹配时显示音频控件
+            User->>Player: VP6 点击播放
+        else 用户取消或组件退出
+            Page-->>Remote: VP7 取消当前调用
+            Remote-->>Runtime: 取消信号
+            Runtime->>Voice: 等待合成进程退出
+        end
+    else 服务忙或环境未就绪
+        Runtime-->>Page: 固定错误与处理提示
+    end

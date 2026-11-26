@@ -1,0 +1,30 @@
+{
+  "profile": "independent-boot-selector-v2-stock-base",
+  "stockSdkBase": true,
+  "idf": "735507283d5b2f9fb363a1901172dbd9e847945d",
+  "referenceConfigSha256": "d5fb31a7a0640b8db2cbf6f0a4cbfadc110aa7b2b133fe50a25ecf976cae7a38",
+  "generatedConfigSha256": "2bcfe3839efb0479cad47a5318756d7fc71090c54df41cf582ec9d78af8e46bb",
+  "referencePartitionsSha256": "4b6823597817f7ac9e32994329526ba44467279d39b57ceb934648747cdca6be",
+  "inputs": {
+    "scripts/build_agent_selector.py": "96f84401f9e00c542697d8baaabd12e832355e688b18a9785b8573e175b9e0bc",
+    "firmware/boot-selector/CMakeLists.txt": "744582b9f6e8e368bbc07fbdf36307cc91103f2e0ef23c232352882a4304e619",
+    "firmware/boot-selector/bootloader_components/main/CMakeLists.txt": "d42176767d6aca3848b99fedc2b4b1de9565fff2d807b6e1a07adc46da3bd82c",
+    "firmware/boot-selector/bootloader_components/main/bootloader_start.c": "6449f20228b10bd5cc7df84af46185138f6b0d64542953f2ed181494644e38b1",
+    "firmware/boot-selector/main/CMakeLists.txt": "1e33e2b6c6a395ed0d2b94aebe57f75ef9f529cb01d4dc21897d0e4f96527a31",
+    "firmware/boot-selector/sdkconfig.stock.defaults": "3fe1f0e25c4921c82f803adf448f907ef4b70cd2447750308005a9de55199efe",
+    "firmware/boot-selector/stock-sdk.lock.json": "48991176d835db86b3af88f49810d8b2edf73237090e62d2d66623b9d2fe6f16"
+  },
+  "artifacts": {
+    "bootloader.bin": {
+      "bytes": 21264,
+      "sha256": "b5799a2b9910bdbccc25c3ec5fe7263c8e5c4e25cdbd514650f924c45f9cf4af"
+    },
+    "bootloader.elf": {
+      "bytes": 602884,
+      "sha256": "71212b30e3f237eed65d764c24824a448734d9209f31e8370134e626af014819"
+    }
+  },
+  "candidateOnly": true,
+  "installable": false,
+  "hardwareValidated": false
+}

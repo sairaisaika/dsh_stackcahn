@@ -1,0 +1,57 @@
+sequenceDiagram
+    autonumber
+    participant U as 用户 / 配对页面
+    participant C as PairingController
+    participant R as DSH Client Remote
+    participant G as 原生 Gateway
+    participant P as PairingRemote
+    participant H as 私有 Host helper
+    participant D as DSH.AGENT
+    Note over U,H: V12 · 本地 carrier / 页面夹具已测；用户 DSH 与真实 USB 待验收
+    Note over U,R: 页面挂载生成描述符；打开页面不发送配对操作
+    U->>C: 刷新本地状态
+    C->>R: execute(snapshot, signal)
+    R->>G: /api + stackchanPairing/execute + args
+    G->>G: 生成 codec 验证；原生访问策略
+    Note right of G: 参数/策略拒绝在业务方法之前返回
+    G->>P: execute(request, invocation.signal)
+    P->>P: 再检查 peer principal 为 owner
+    alt 非 owner
+        P-->>G: 固定 Remote 错误
+        G-->>R: 失败 envelope
+        R-->>C: RemoteResult.error
+        C-->>U: 固定提示；不回显 provider 内容
+    else owner 且契约合法
+        P->>H: call(snapshot)；不打开串口
+        H-->>P: revision / active / candidate / pending
+        P-->>G: 脱敏快照
+        G-->>R: 成功 envelope
+        R-->>C: RemoteResult.value
+        C-->>U: 本地状态；不宣称设备在线
+    end
+    opt 首配时从已选端口读编号
+        U->>C: 读取设备编号
+        C->>R: identify(port, signal)
+        R->>G: 同一原生 Gateway
+        G->>P: identify(port)，复核 owner
+        P->>H: 检查许可并独占打开串口
+        H->>D: SIONA1 status
+        D-->>H: 设备状态
+        H-->>P: 仅返回设备编号，关闭串口
+        P-->>R: 经 Gateway 返回编号
+        R-->>C: 更新草稿，切换端口时清除
+    end
+    U->>C: 显式 prepare / inspect / install / remove
+    C->>C: 检查 revision、设备编号、pending 与写入确认
+    C->>R: 同一路径调用，带快照 revision；USB 操作带单次许可
+    Note over G,H: 托管端口先核验，写入再记 pending；V11 / V51
+    alt 写入回复失败 / 取消
+        R-->>C: 未确认结果
+        C-->>U: 清旧 revision；刷新后只读 inspect；不自动重放
+    else 已确认结果
+        R-->>C: 新快照
+        C-->>U: 清确认勾选，显示实际身份结果
+    end
+    U->>C: 离开 / 卸载页面
+    C->>R: abort 自己的请求；忽略迟到结果
+    Note over R,H: 取消传播到 helper；持久化 pending 仍可能需要核对

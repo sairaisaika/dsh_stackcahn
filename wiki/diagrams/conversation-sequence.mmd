@@ -1,0 +1,57 @@
+sequenceDiagram
+    autonumber
+    participant V as LocalVoice adapter
+    participant B as VoiceBridge
+    participant S as DSH session adapter
+    participant D as 选定 Session Controller
+    Note over V,D: V4 · 官方 DSH 隔离 profile 与本地语音已组合验证；用户会话和真机待验收
+    B->>S: bind(existingSessionId)
+    S->>D: projections(sessionId)
+    D-->>S: 已有 sequenced 会话 / 缺失 / 需迁移
+    S-->>B: binding 或明确拒绝
+    B->>V: acquire(onTranscript, onDisconnect)
+    V-->>B: reserved lease
+    B->>B: 保存清理句柄
+    B->>V: activate；预热输入 / Start 设备
+    V-->>B: active（失败转 V22 释放分支）
+    loop 每条 final 转写；队列上限 4
+        V->>B: receive(id, text, final=true)
+        alt 完整停止命令且 commandEligible 不为 false
+            B->>B: stop；抢占普通队列；generation 加一
+            Note over B,D: 退出声音通道；不全局取消桌面 Agent
+        else 普通新输入且队列未满
+            B->>S: binding.ask(text, signal)
+            loop 等待 DSH 可接收下一问
+                opt 上一轮执行中或 inbox 有待处理输入
+                    S->>D: observeState(sessionId)
+                    D-->>S: 空闲且无在前输入，或取消
+                    Note over B,S: Stop 丢弃尚未提交的转写
+                end
+                S->>D: follow(sessionId)
+                D-->>S: snapshot / cursor / inbox
+                S->>S: 核对活动状态和待处理输入
+            end
+            opt 仍属当前连接且可以提交
+                S->>D: prompt(sessionId, 新 requestId, 文本)
+                D-->>S: turn/start、user/message
+                opt 所属尝试给出完整短首句
+                    D-->>S: assistant-stream 正文增量
+                    S-->>B: onSpeechPreview(首句)
+                    B->>V: prepareSpeech(首句)
+                    Note over B,V: Kokoro 提前拉取一块 PCM，只留在 Mac 内存
+                end
+                D-->>S: assistant/message、尝试确认、turn/end
+                S->>S: 校验 seq、rpcId、ownedTurn、completed 与首句来源
+                alt 混入其他输入、序列缺口或未完成
+                    S-->>B: 明确错误；不播出结果
+                else 本轮完成
+                    S-->>B: 仅最终 assistant 文本
+                    B->>B: 再检查 generation / abort
+                    B->>V: lease.speak(最终正文)，匹配则复用首句
+                    V-->>B: 数字播放排空结果（真机未验收）
+                end
+            end
+        else 重复 / 旧 generation / 队列已满
+            B-->>V: ignored 或 queue-full
+        end
+    end

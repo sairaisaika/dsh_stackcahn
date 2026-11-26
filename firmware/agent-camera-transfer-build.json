@@ -1,0 +1,64 @@
+{
+  "profile": "independent-camera-transfer-v19",
+  "appVersion": "dsh-agent-v19",
+  "inputs": {
+    "firmware/upstream.lock.json": "413849a09de901b87eb18027b1d21ed14bb6ddc642303d29e7a64fd16311da8a",
+    "firmware/agent-dependencies.lock": "e6a2f730e9430fbc4d6d7637c6368aab08302ad290cb452b07ad81482ce278f7",
+    "scripts/prepare_agent.py": "9ef50a2b7c62be56dc3eb7851f00f5d90de8f3f243f98a8cacb65795279478f8",
+    "scripts/prepare_firmware.py": "653be6546be0469a9ccc637d7d80ddca7d96265f31ffacefe7a7352f75e1d54a",
+    "scripts/build_agent.py": "c9bc7f8ec615b87e67031c0267743d4b058324f5f1b4085e1e9004ba216bc4ac",
+    "firmware/agent/agent_display.cc": "5ee0f6599fc04a5f2d133f681468c217932b47babaf3b64b736dffc7ebe2951d",
+    "firmware/agent/agent_display.h": "96567ca9b508c887043a8623bc1dadc67562e512c78bcc3e74aac41d7ece85fd",
+    "firmware/agent/agent_network.cc": "65323fcfed8154f3c1200620af57bb135c75450a20a4655f71a0febbdf36a1ac",
+    "firmware/agent/agent_network.h": "7a4310bc70bc34c91a5555b1e65918aff488cc534e973cec583679b9f1fa99a7",
+    "firmware/agent/agent_network_queue.h": "8ade881d7c43f142997a7644175925eca7e360cc18fab25eb7832f868043cb68",
+    "firmware/agent/agent_session.cc": "bac0c9578897aeb921acaab002ae749cc7d06b6300e8f61728180caf3fd942b0",
+    "firmware/agent/agent_session.h": "636c62dcf7f521839b5e0542535c579b17ed925a76bd6b16c5ce772b1f59f779",
+    "firmware/agent/agent_wire.h": "419d2eda0161a2fd7d8f9cfc7b4a469e42133730bdc4481c8404268b4987c9a5",
+    "firmware/agent/audio_engine.h": "bf7a3c574c685ccf9e5078d12a6f5e4ef3c01d6c05b60b1cd689707b6689fc47",
+    "firmware/agent/audio_runtime.cc": "dcc3acc3a812bc74872b8c402c95a90bb2a36cdffdefa7c6247a92f7daad2981",
+    "firmware/agent/audio_runtime.h": "a96dbf461ed17baaa05df7c17957033442f5383500d522c079df5c5234d8933f",
+    "firmware/agent/camera_engine.h": "9b462483760a33d1a4bf2b43ee5dd574de37f987152eac1f76fab046de138d66",
+    "firmware/agent/camera_port.cc": "035803f960791ad500661140fc9ed5076f0ca3ed8a084255e2ce526552e4233c",
+    "firmware/agent/camera_port.h": "5779f15e0e0ece453ad806e781005837c51bc90fbf92ea8bfc541173225981d0",
+    "firmware/agent/camera_runtime.cc": "77ad0f255be22ffb587c347969674a2ff1b69b44fc947bbb3354350206277ca7",
+    "firmware/agent/camera_runtime.h": "160f6d3700a4b0006bdfff5ef23c15876440de15ce95cda08ca48fa316a7881c",
+    "firmware/agent/camera_transfer.h": "9648a24221cfa6a464ecf4791c090fb2d00e1e3f204a8c7277a338f350b02257",
+    "firmware/agent/component.cmake": "164b50d8915dd49fb59cc2aa080ce661e104c3e87fa97548e4a060b2a0b78429",
+    "firmware/agent/core_audio_bridge.cc": "5d5740a2e23f70090d3bd202f67191a2c43a1c30db0495f7b83c2535c54414b3",
+    "firmware/agent/device_main.cc": "37aece118726d829b088a9d03ed2fef0c230ce6526d1da84caccab08455ea4bb",
+    "firmware/agent/expression_port.h": "b6e85447e7b3f54e9c9b48bb55b51317723ef2956d7d11d7e79c0b3a3a0a7112",
+    "firmware/agent/pairing_service.cc": "d73cc2bc6a91150a90afce7970d95911bee9ca5a1486eb5989a166908df09773",
+    "firmware/agent/pairing_service.h": "b009bc9a0706895f3cbcec8bb9d8a9c1fa10dfd6911c1b6ae01d0b852c63c488",
+    "firmware/agent/pairing_store.cc": "c28ea84312a8e884382b8fb1790cf1d1b42d3e3db5593540ef1c17ee2bdaab4a",
+    "firmware/agent/pairing_store.h": "cf87cbb2001fd3a7d1d762ed2f5c2be190f79a3ee2415915fccd6094bbc6f4ee",
+    "firmware/agent/pairing_usb.cc": "afc95fb762cb0f9326ebc090782dc26981428f66482d44727836d669c715354b",
+    "firmware/agent/pairing_usb.h": "9529624092b3ebeef015034fcb5c750a32ab467fa4b1e851e3911e58c64d4d02",
+    "firmware/agent/preferences.h": "874958223b19bebcb1ce54f7db4bb15170c2d5691155ecd4cb6befb8b26337ce",
+    "firmware/agent/sdkconfig.defaults": "1d5972525f309f308f05f1d5b7bf52dcddff25e60efbb6c60386092382200639",
+    "firmware/agent/session_lifecycle.h": "6b83c1e9ec9e5f9031d1f9843f3e77ef1c8b1ac9a55fbf8eec6641c9a0945aaa",
+    "firmware/agent/settings_store.cc": "61c53c264f99f369e1fc4f9bd2e9e2cebbbd40df0278c426ac9a413389f896ca",
+    "firmware/agent/storage_guard.cc": "0a6dbf8283eaf92388dbe4629aabcce9dfd7df76d4e7fe4ca81ec4c761160890",
+    "firmware/agent/storage_guard.h": "806617492aa9c4591f47f81b9d916a286d48aae1e16a18e95818df0c334a476c",
+    "firmware/overlay/sion/pairing_config.h": "08e9ca59c6b6c115f72b54ca874dcb8c91e639afe7c12a401bcf16d474a2c1f1",
+    "firmware/overlay/sion/endpoint_policy.h": "c068c50d142fa10e65e0bff98bb37937902321042520cb38d65f5635f6835fa5"
+  },
+  "idf": "fff9895c82d744c7237be8847347bdd1b07c6643",
+  "preparedReceiptSha256": "e501bed1b04af78c9189fe52aea0772f74ef4a8c9e3d34942fdeb141b9061edc",
+  "artifacts": {
+    "stack-chan.bin": {
+      "sha256": "0944acd34384d93e7666650e32c386f61692bf705c98197340112a2b7651d48f",
+      "bytes": 2141376
+    },
+    "stack-chan.elf": {
+      "sha256": "e79df7fab44bfa15f8a8e8d2ce1e555b66a7f4132b268b8f6a63369d8feaf989",
+      "bytes": 70745108
+    },
+    "agent-sdkconfig": {
+      "sha256": "8dc2eb59ced5255626bdb86f2609f51ea40d8ffd1328bbfd59bead97c369e2b2",
+      "bytes": 153306
+    }
+  },
+  "installable": false,
+  "hardwareValidated": false
+}

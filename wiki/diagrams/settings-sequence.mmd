@@ -1,0 +1,45 @@
+sequenceDiagram
+    autonumber
+    participant U as 用户 / StackChan 设置页
+    participant C as SettingsController
+    participant R as DSH Session Remote
+    participant F as 原生 ConfigForm
+    participant H as Host volatile Config
+    Note over U,H: V8 · 按 ID 核对与配置保存各有入口
+    F-->>C: snapshot：preferences / revision / writable
+    opt 单独核对当前所选会话
+        U->>C: 核对当前会话
+        C->>R: projections(所选 ID, signal)
+        R-->>C: 当前格式 / 缺失 / 需先在 DSH 打开 / 查询失败
+        C-->>U: 当前 ID 一致且页面有效才显示结果
+        Note over C,F: 核对不读取列表，不写配置
+    end
+    U->>C: edit(field, value)
+    C->>C: 保存草稿；dirty=true
+    U->>C: save()
+    alt 不可写、busy、已有冲突
+        C-->>U: 不提交；保留草稿 / 显示冲突
+    else 可以保存
+        C->>C: 固定本次草稿和原 revision；取消页面尚未完成的读取
+        opt 已选择 sessionId
+            C->>R: projections(sessionId, signal)
+            R-->>C: 存在且 sequenced / 不可用 / 需迁移
+        end
+        alt 会话不可用、读取错误或取消
+            C-->>U: 不调用 mutate；不创建替代会话
+        else 校验通过
+            C->>F: mutate(set preferences, expectedRevision)
+            alt 陈旧 revision 或校验/写入失败
+                F-->>C: 拒绝或抛错
+                C-->>U: 保留草稿；要求重载或重试
+            else 原生保存接受
+                par 原生服务驱动 Host 更新
+                    F-->>H: 更新 volatile 配置
+                and Client 获得保存结果
+                    F-->>C: 接受结果及后续 snapshot
+                    C-->>U: 已保存；下次启动语音服务应用
+                end
+            end
+        end
+    end
+    Note over C,F: dispose 取消自己的读/校验；已交给原生层的写入不能保证撤回

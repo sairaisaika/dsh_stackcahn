@@ -1,0 +1,78 @@
+{
+  "date": "2026-11-18",
+  "officialFirmwareBase": "1.6.2",
+  "result": "build-passed-not-flashed",
+  "sourceLock": "upstream.lock.json",
+  "featureEnabled": true,
+  "artifacts": [
+    {
+      "path": "build/stack-chan.bin",
+      "bytes": 3812432,
+      "sha256": "8fcc0c099d65f546856219640ceb234af713015cd8a6eabfb7d20ff0a637c4d2",
+      "identicalToBaseline": false
+    },
+    {
+      "path": "build/bootloader/bootloader.bin",
+      "bytes": 24208,
+      "sha256": "7130c99b96f5ff7781ccaac85d0f677bd6b0db93eae586ddc39890329002aecc",
+      "identicalToBaseline": true
+    },
+    {
+      "path": "build/partition_table/partition-table.bin",
+      "bytes": 3072,
+      "sha256": "48da0866f56d9d8eb1fe786412984d8f1a4a01b3f13f965621fcb916761e1a4b",
+      "identicalToBaseline": true
+    },
+    {
+      "path": "build/ota_data_initial.bin",
+      "bytes": 8192,
+      "sha256": "7d2c7ac4888bfd75cd5f56e8d61f69595121183afc81556c876732fd3782c62f",
+      "identicalToBaseline": true
+    },
+    {
+      "path": "build/generated_assets.bin",
+      "bytes": 2371294,
+      "sha256": "aafda94173c5060c8eabc7993282ef4812bd0185c4e5aa4f7e4645117b9a7646"
+    },
+    {
+      "path": "build/flasher_args.json",
+      "bytes": 1196,
+      "sha256": "2210985b6da335f3a7cd21e8a93f67478ffbfed8d3764335404f3c5bc0581ec3",
+      "identicalToBaseline": true
+    },
+    {
+      "path": "build/sion-sdkconfig",
+      "bytes": 153318,
+      "sha256": "faba3df809948ceb82421bbd584634ef45bc5985d9cdb23c87381cda0e175e2b"
+    },
+    {
+      "path": "dependencies.lock",
+      "bytes": 29208,
+      "sha256": "636d39a630994317d1c72e337ba3626f8e2a2daf721a453039cf2bf5ad5248b0",
+      "identicalToBaseline": true
+    }
+  ],
+  "sourceSha256": {
+    "firmware/feature.defaults": "f2ceb733809cf66d0dd5358c0a6bdee28cd222ecfec280c3407f8c15991b4891",
+    "firmware/overlay/sion/backend_runtime.cc": "bbf6af535b954397171f13954c58f849ec7d1869313c0cd5b1c03ea716220fd9",
+    "firmware/overlay/sion/backend_runtime.h": "de5ccd99165c787b0d1c09b202065c2528f4a78e548a36ba67c14a8425d398bf",
+    "firmware/overlay/sion/endpoint_policy.h": "c068c50d142fa10e65e0bff98bb37937902321042520cb38d65f5635f6835fa5",
+    "firmware/overlay/sion/mode_controller.h": "eff586431b4bfc0cf28b20368b8c13288b7bbc01bf578866c462673d9185bfda",
+    "firmware/patches/stackchan-dual-backend.patch": "4293604bb22d5e5f1ff3e5345a91564dd1718cf81a6273ac5e9ab0cd2cc9cc0c",
+    "firmware/patches/xiaozhi-dual-backend.patch": "6457e2acd1f1112b73ae062efe5e2f868214a233b5a10a4905549a38c459cf9a",
+    "firmware/tests/endpoint_policy_test.cc": "105ab1039ac0d626d5a0d2e080b6c93c6ea807819fed9baa5fcfcae2132f078b",
+    "firmware/tests/mode_controller_test.cc": "b6e4f3fc4ff889e3f8d9e78a5de42502c97ac37dad11f1a5f4990c67db33b949",
+    "firmware/tests/stubs/application.h": "fba02f9f99fdb1241a05a1e6a32e2689b913c1012f5c9e310a9a235677845a4c",
+    "firmware/tests/stubs/assets/lang_config.h": "e8fe196775935080c390d58798e96cbd9d7ad047d016a5fa05536ff727e40cd9",
+    "firmware/tests/stubs/assets.h": "aa2648449c0eddd7e29e5ee977ad39ec7751131848069308931e12d5bb9168b4",
+    "firmware/tests/stubs/board.h": "863a80c6f8896478f4d6b18a75fd5592619e88cef00a911dd70056eadbb141cb",
+    "firmware/tests/stubs/esp_log.h": "115beb610609d8a24ee90238bc6c9adaf9a443daffe8cba31f7f613975fc141e",
+    "firmware/tests/stubs/freertos/FreeRTOS.h": "448edac2047603d85e2f7e02dabba74084021871036d0226db3c24682951f4ce",
+    "firmware/tests/stubs/freertos/event_groups.h": "f85f11061e7cdff2d34450f50ef16740ceab64a2555d86945bf56c8654df051e",
+    "firmware/tests/stubs/settings.h": "3497475ff4b16b5de6cac5eefbef260b1e5ef60b07e4d866e8f67f87a9d2d0a6",
+    "firmware/tests/stubs/system_info.h": "e97fa325a13fa79fc043d1505f43b5e9bec2701dd4575e5a766914ff7e85c8a2",
+    "firmware/tests/stubs/web_socket.h": "f10f226f351421d395623b6611a1f5bcc2cc268a302fe40ca591c9eba4c8f793",
+    "firmware/tests/websocket_endpoint_test.cc": "5d05b8bfd8ebb25713f190784544c2f167ea6efc9cfb48615ebb756d8be26cdc"
+  },
+  "hardwareTested": false
+}

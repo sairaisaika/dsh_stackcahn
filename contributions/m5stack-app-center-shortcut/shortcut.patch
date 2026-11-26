@@ -1,0 +1,544 @@
+diff --git a/firmware/main/Kconfig.projbuild b/firmware/main/Kconfig.projbuild
+index 73077c0..da571a9 100644
+--- a/firmware/main/Kconfig.projbuild
++++ b/firmware/main/Kconfig.projbuild
+@@ -20,6 +20,20 @@ config STACKCHAN_APP_CENTER_HOME
+         Home handoff. Do not load a ULP program into those bytes. A valid request
+         opens the launcher on this boot without changing the AI Agent preference.
+ 
++config STACKCHAN_DSH_APP_CENTER_SHORTCUT
++    bool "Show a DSH.AGENT shortcut for an installed App Center image"
++    depends on STACKCHAN_APP_CENTER_REOPEN && STACKCHAN_APP_CENTER_HOME
++    default n
++
++config STACKCHAN_DSH_CATALOG_ID
++    int "DSH.AGENT ID in the publisher's App Center catalog"
++    depends on STACKCHAN_DSH_APP_CENTER_SHORTCUT
++    range 0 2147483647
++    default 0
++    help
++        Set this to the real positive ID issued by the catalog publisher.
++        No shortcut can be enabled without an explicit ID.
++
+ menu "Xiaozhi Assistant"
+ 
+ config OTA_URL
+diff --git a/firmware/main/apps/app_app_center/app_app_center.cpp b/firmware/main/apps/app_app_center/app_app_center.cpp
+index 5aa6dcf..fcecc3d 100644
+--- a/firmware/main/apps/app_app_center/app_app_center.cpp
++++ b/firmware/main/apps/app_app_center/app_app_center.cpp
+@@ -76,7 +76,7 @@ void AppAppCenter::onRunning()
+             GetHAL().openInstalledApp(app);
+             message = "Installed app could not be opened. Back to check again, or Download to reinstall.";
+         } else if (GetHAL().canDownloadApp(app)) {
+-            GetHAL().launchApp(app.firmwareUrl, [&](int percent) {
++            GetHAL().launchApp(app, [&](int percent) {
+                 LvglLockGuard lock;
+                 if (_app_install_page) {
+                     _app_install_page->setProgress(percent);
+diff --git a/firmware/main/apps/app_dsh_shortcut/app_dsh_shortcut.cpp b/firmware/main/apps/app_dsh_shortcut/app_dsh_shortcut.cpp
+new file mode 100644
+index 0000000..5697a6f
+--- /dev/null
++++ b/firmware/main/apps/app_dsh_shortcut/app_dsh_shortcut.cpp
+@@ -0,0 +1,58 @@
++// SPDX-License-Identifier: MIT
++#include "sdkconfig.h"
++#if CONFIG_STACKCHAN_DSH_APP_CENTER_SHORTCUT
++#include "app_dsh_shortcut.h"
++#include <apps/common/home_indicator/home_indicator.h>
++#include <esp_system.h>
++#include <hal/app_center_dsh_shortcut.h>
++#include <hal/hal.h>
++
++AppDshShortcut::AppDshShortcut()
++{
++    setAppInfo().name = "DSH.AGENT";
++    static uint32_t color = 0x538BD7;
++    setAppInfo().userData = &color;
++}
++
++void AppDshShortcut::onOpen()
++{
++    LvglLockGuard lock;
++    page_ = lv_obj_create(lv_screen_active());
++    lv_obj_set_size(page_, LV_PCT(100), LV_PCT(100));
++    status_ = lv_label_create(page_);
++    lv_label_set_long_mode(status_, LV_LABEL_LONG_WRAP);
++    lv_obj_set_width(status_, LV_PCT(90));
++    lv_label_set_text(status_, "Checking DSH.AGENT...");
++    lv_obj_center(status_);
++    view::create_home_indicator([this] { close(); }, 0xB8D3FD, 0x26206A, page_);
++    open_pending_ = true;
++}
++
++void AppDshShortcut::onRunning()
++{
++    const char* message = nullptr;
++    if (open_pending_) {
++        open_pending_ = false;
++        // Run on the application task outside the display lock.
++        using app_center::DshShortcutResult;
++        switch (app_center::selectDshShortcut()) {
++        case DshShortcutResult::Selected: esp_restart();
++        case DshShortcutResult::SetupRequired: message = "Open or install DSH.AGENT in App Center first."; break;
++        case DshShortcutResult::UpdateInProgress: message = "Finish any system update before opening DSH.AGENT."; break;
++        case DshShortcutResult::ImageUnavailable: message = "DSH.AGENT is unavailable. Check App Center."; break;
++        }
++    }
++    LvglLockGuard lock;
++    if (message) lv_label_set_text(status_, message);
++    view::update_home_indicator();
++}
++
++void AppDshShortcut::onClose()
++{
++    LvglLockGuard lock;
++    open_pending_ = false;
++    view::destroy_home_indicator();
++    if (page_) lv_obj_delete(page_);
++    page_ = status_ = nullptr;
++}
++#endif
+diff --git a/firmware/main/apps/app_dsh_shortcut/app_dsh_shortcut.h b/firmware/main/apps/app_dsh_shortcut/app_dsh_shortcut.h
+new file mode 100644
+index 0000000..b957d6c
+--- /dev/null
++++ b/firmware/main/apps/app_dsh_shortcut/app_dsh_shortcut.h
+@@ -0,0 +1,18 @@
++// SPDX-License-Identifier: MIT
++#pragma once
++
++#include <lvgl.h>
++#include <mooncake.h>
++
++class AppDshShortcut : public mooncake::AppAbility {
++public:
++    AppDshShortcut();
++    void onOpen() override;
++    void onRunning() override;
++    void onClose() override;
++
++private:
++    lv_obj_t* page_ = nullptr;
++    lv_obj_t* status_ = nullptr;
++    bool open_pending_ = false;
++};
+diff --git a/firmware/main/apps/app_setup/workers/feature_toggle.cpp b/firmware/main/apps/app_setup/workers/feature_toggle.cpp
+index 515bc60..999616e 100644
+--- a/firmware/main/apps/app_setup/workers/feature_toggle.cpp
++++ b/firmware/main/apps/app_setup/workers/feature_toggle.cpp
+@@ -80,7 +80,7 @@ void FeatureToggleWorker::load_preferences()
+ 
+ bool FeatureToggleWorker::save_preferences(const ToggleStates& desired)
+ {
+-    if (save_states(desired)) {
++    if (save_states(desired, _states)) {
+         _states = desired;
+         _status->setText(HELP);
+         refresh_rows();
+diff --git a/firmware/main/hal/app_center_dsh_shortcut.h b/firmware/main/hal/app_center_dsh_shortcut.h
+new file mode 100644
+index 0000000..2e2d348
+--- /dev/null
++++ b/firmware/main/hal/app_center_dsh_shortcut.h
+@@ -0,0 +1,112 @@
++// SPDX-License-Identifier: MIT
++#pragma once
++
++#include "app_center_reopen.h"
++#include "sdkconfig.h"
++#include <algorithm>
++#include <cstring>
++#include <esp_image_format.h>
++#include <esp_log.h>
++#include <memory>
++#include <new>
++#include <psa/crypto.h>
++#include <nvs.h>
++
++static_assert(CONFIG_STACKCHAN_DSH_CATALOG_ID > 0, "Configure the publisher's DSH catalog item ID");
++
++namespace app_center {
++
++struct DshShortcutRecord {
++    ImageDigest factory;
++    std::array<char, 64> agent;
++};
++static_assert(sizeof(DshShortcutRecord) == 96);
++inline constexpr char dsh_shortcut_namespace[] = "app_dsh_menu";
++inline constexpr char dsh_shortcut_key[] = "launch_v1";
++
++// Stream the running image without remapping its executable Flash pages.
++// The digest must match the image trailer before it can identify the factory build.
++inline bool readRunningImageDigest(const esp_partition_t& partition, ImageDigest& digest)
++{
++    const esp_partition_pos_t position{.offset = partition.address, .size = partition.size};
++    esp_image_metadata_t image{};
++    if (esp_image_get_metadata(&position, &image) != ESP_OK || !image.image.hash_appended ||
++        image.image_len <= digest.size() || image.image_len > partition.size) return false;
++
++    constexpr size_t chunk_size = 4096;
++    std::unique_ptr<uint8_t[]> chunk(new (std::nothrow) uint8_t[chunk_size]);
++    if (!chunk) return false;
++    auto hash = psa_hash_operation_init();
++    if (psa_hash_setup(&hash, PSA_ALG_SHA_256) != PSA_SUCCESS) return false;
++    const size_t size = image.image_len - digest.size();
++    for (size_t offset = 0; offset < size;) {
++        const auto length = std::min(chunk_size, size - offset);
++        if (esp_partition_read(&partition, offset, chunk.get(), length) != ESP_OK ||
++            psa_hash_update(&hash, chunk.get(), length) != PSA_SUCCESS) {
++            psa_hash_abort(&hash);
++            return false;
++        }
++        offset += length;
++    }
++    size_t written = 0;
++    const auto status = psa_hash_finish(&hash, digest.data(), digest.size(), &written);
++    if (status != PSA_SUCCESS) psa_hash_abort(&hash);
++    return status == PSA_SUCCESS && written == digest.size() &&
++           std::memcmp(digest.data(), image.image_digest, digest.size()) == 0;
++}
++
++// Called only after a user-selected catalog download or Open has selected the next boot.
++inline void rememberDshShortcut(std::string_view advertised)
++{
++    const auto expected = parseReopenDigest(advertised);
++    const auto* running = esp_ota_get_running_partition();
++    const auto* target = esp_ota_get_boot_partition();
++    if (!expected || !running || !target || target == running || esp_ota_get_app_partition_count() != 2 ||
++        target != esp_ota_get_next_update_partition(running)) return;
++
++    esp_ota_img_states_t state;
++    if (esp_ota_get_state_partition(running, &state) != ESP_OK || state != ESP_OTA_IMG_VALID ||
++        esp_ota_get_state_partition(target, &state) != ESP_OK || state != ESP_OTA_IMG_NEW) return;
++
++    DshShortcutRecord record;
++    ImageDigest actual;
++    esp_app_desc_t app{};
++    if (esp_partition_get_sha256(target, actual.data()) != ESP_OK || actual != *expected ||
++        esp_ota_get_partition_description(target, &app) != ESP_OK ||
++        std::strncmp(app.project_name, "stack-chan", sizeof(app.project_name)) != 0 ||
++        std::strncmp(app.version, "dsh-agent-v", sizeof("dsh-agent-v")-1) != 0 ||
++        !readRunningImageDigest(*running, record.factory)) return;
++    std::copy(advertised.begin(), advertised.end(), record.agent.begin());
++
++    nvs_handle_t handle;
++    auto error = nvs_open(dsh_shortcut_namespace, NVS_READWRITE, &handle);
++    if (error == ESP_OK) {
++        error = nvs_set_blob(handle, dsh_shortcut_key, &record, sizeof(record));
++        if (error == ESP_OK) error = nvs_commit(handle);
++        nvs_close(handle);
++    }
++    if (error != ESP_OK) ESP_LOGW("DSH Shortcut", "Unable to save App Center shortcut: %s", esp_err_to_name(error));
++}
++
++enum class DshShortcutResult { Selected, SetupRequired, UpdateInProgress, ImageUnavailable };
++
++inline DshShortcutResult selectDshShortcut()
++{
++    if (!availableInactiveAppSlot()) return DshShortcutResult::UpdateInProgress;
++    nvs_handle_t handle;
++    if (nvs_open(dsh_shortcut_namespace, NVS_READONLY, &handle) != ESP_OK) return DshShortcutResult::SetupRequired;
++    DshShortcutRecord record;
++    size_t size = sizeof(record);
++    const auto result = nvs_get_blob(handle, dsh_shortcut_key, &record, &size);
++    nvs_close(handle);
++    ImageDigest factory;
++    const auto* running = esp_ota_get_running_partition();
++    if (result != ESP_OK || size != sizeof(record) || !running ||
++        !readRunningImageDigest(*running, factory) || factory != record.factory) {
++        return DshShortcutResult::SetupRequired;
++    }
++    return selectInstalledApp({record.agent.data(), record.agent.size()}) ?
++        DshShortcutResult::Selected : DshShortcutResult::ImageUnavailable;
++}
++
++} // namespace app_center
+diff --git a/firmware/main/hal/hal.h b/firmware/main/hal/hal.h
+index bf98c92..200915d 100644
+--- a/firmware/main/hal/hal.h
++++ b/firmware/main/hal/hal.h
+@@ -85,6 +85,7 @@ struct AppInfo_t {
+     std::string description;
+     std::string firmwareUrl;
+     std::string reopenImageSha256;
++    bool dshShortcut = false;
+ };
+ 
+ using AppInfoList_t = std::vector<AppInfo_t>;
+@@ -283,7 +284,7 @@ public:
+ 
+     /* -------------------------------- App center ------------------------------- */
+     app_center::AppInfoList_t fetchAppList();
+-    void launchApp(std::string_view url, std::function<void(int)> onProgress);
++    void launchApp(const app_center::AppInfo_t& app, std::function<void(int)> onProgress);
+     bool canDownloadApp(const app_center::AppInfo_t& app);
+     bool canOpenInstalledApp(const app_center::AppInfo_t& app);
+     void openInstalledApp(const app_center::AppInfo_t& app);
+diff --git a/firmware/main/hal/hal_app_center.cpp b/firmware/main/hal/hal_app_center.cpp
+index 109ec9a..504da47 100644
+--- a/firmware/main/hal/hal_app_center.cpp
++++ b/firmware/main/hal/hal_app_center.cpp
+@@ -9,6 +9,9 @@
+ #include "app_center_reopen.h"
+ #include <esp_system.h>
+ #endif
++#if CONFIG_STACKCHAN_DSH_APP_CENTER_SHORTCUT
++#include "app_center_dsh_shortcut.h"
++#endif
+ #include "utils/ota/ota.h"
+ #include "utils/secret_logic/secret_logic.h"
+ #include <mooncake_log.h>
+@@ -111,6 +114,10 @@ app_center::AppInfoList_t Hal::fetchAppList()
+             if (catalog_url.starts_with("https://")) {
+                 if (const char* sha = get_json_string(item, {"reopenImageSha256"}); sha && app_center::parseReopenDigest(sha)) {
+                     info.reopenImageSha256 = sha;
++#if CONFIG_STACKCHAN_DSH_APP_CENTER_SHORTCUT
++                    const auto* id = cJSON_GetObjectItemCaseSensitive(item, "id");
++                    info.dshShortcut = cJSON_IsNumber(id) && id->valuedouble == CONFIG_STACKCHAN_DSH_CATALOG_ID;
++#endif
+                 }
+             }
+ #endif
+@@ -133,11 +140,18 @@ static void ota_callback(int progress)
+     }
+ }
+ 
+-void Hal::launchApp(std::string_view url, std::function<void(int)> onProgress)
++void Hal::launchApp(const app_center::AppInfo_t& app, std::function<void(int)> onProgress)
+ {
+-    mclog::tagInfo(_tag, "launching app from url: {}", url);
++    mclog::tagInfo(_tag, "launching app from url: {}", app.firmwareUrl);
+     _on_progress = onProgress;
+-    start_ota_update(url.data(), ota_callback);
++#if CONFIG_STACKCHAN_DSH_APP_CENTER_SHORTCUT
++    start_ota_update(app.firmwareUrl.c_str(), ota_callback, [](const void* context) {
++        const auto& selected = *static_cast<const app_center::AppInfo_t*>(context);
++        if (selected.dshShortcut) app_center::rememberDshShortcut(selected.reopenImageSha256);
++    }, &app);
++#else
++    start_ota_update(app.firmwareUrl.c_str(), ota_callback, nullptr, nullptr);
++#endif
+     _on_progress = nullptr;
+ }
+ 
+@@ -165,6 +179,9 @@ void Hal::openInstalledApp(const app_center::AppInfo_t& app)
+ {
+ #if CONFIG_STACKCHAN_APP_CENTER_REOPEN
+     if (app_center::selectInstalledApp(app.reopenImageSha256)) {
++#if CONFIG_STACKCHAN_DSH_APP_CENTER_SHORTCUT
++        if (app.dshShortcut) app_center::rememberDshShortcut(app.reopenImageSha256);
++#endif
+         esp_restart();
+     }
+ #else
+diff --git a/firmware/main/hal/hal_toggles.cpp b/firmware/main/hal/hal_toggles.cpp
+index 975130d..1e91298 100644
+--- a/firmware/main/hal/hal_toggles.cpp
++++ b/firmware/main/hal/hal_toggles.cpp
+@@ -6,7 +6,21 @@
+ namespace hal_toggles {
+ namespace {
+ constexpr const char* TAG    = "AppVisibility";
+-constexpr uint8_t VALID_MASK = (1u << TOGGLE_COUNT) - 1;
++// Published firmware rejects any high bit in visible_mask.
++constexpr size_t STOCK_TOGGLE_COUNT = static_cast<size_t>(App::Dance) + 1;
++constexpr uint8_t VALID_MASK = (1u << STOCK_TOGGLE_COUNT) - 1;
++#if CONFIG_STACKCHAN_DSH_APP_CENTER_SHORTCUT
++constexpr size_t DSH_INDEX = static_cast<size_t>(App::DshAgent);
++#endif
++
++uint8_t stock_mask(const ToggleStates& states)
++{
++    uint8_t mask = 0;
++    for (size_t i = 0; i < STOCK_TOGGLE_COUNT; ++i) {
++        if (states[i]) mask |= 1u << i;
++    }
++    return mask;
++}
+ 
+ bool fail(esp_err_t error)
+ {
+@@ -31,11 +45,11 @@ bool load_states(ToggleStates& states)
+             nvs_close(handle);
+             return fail(ESP_ERR_INVALID_STATE);
+         }
+-        for (size_t i = 0; i < TOGGLE_COUNT; ++i) loaded[i] = (mask & (1u << i)) != 0;
++        for (size_t i = 0; i < STOCK_TOGGLE_COUNT; ++i) loaded[i] = (mask & (1u << i)) != 0;
+     } else if (error == ESP_ERR_NVS_NOT_FOUND) {
+         // Migrate the six original keys on the next successful save, without
+         // touching other settings or writing merely to open the launcher.
+-        for (size_t i = 0; i < TOGGLE_COUNT; ++i) {
++        for (size_t i = 0; i < STOCK_TOGGLE_COUNT; ++i) {
+             uint8_t value = 1;
+             error         = nvs_get_u8(handle, TOGGLE_LIST[i].key, &value);
+             if (error == ESP_ERR_NVS_NOT_FOUND) continue;
+@@ -49,24 +63,38 @@ bool load_states(ToggleStates& states)
+         nvs_close(handle);
+         return fail(error);
+     }
++#if CONFIG_STACKCHAN_DSH_APP_CENTER_SHORTCUT
++    uint8_t visible = 1;
++    error = nvs_get_u8(handle, TOGGLE_LIST[DSH_INDEX].key, &visible);
++    if (error == ESP_OK && visible <= 1) {
++        loaded[DSH_INDEX] = visible != 0;
++    } else if (error != ESP_ERR_NVS_NOT_FOUND) {
++        // An unavailable DSH preference must not reset the six factory toggles.
++        fail(error == ESP_OK ? ESP_ERR_INVALID_STATE : error);
++    }
++#endif
+     nvs_close(handle);
+     states = loaded;
+     return true;
+ }
+ 
+-bool save_states(const ToggleStates& states)
++bool save_states(const ToggleStates& states, [[maybe_unused]] const ToggleStates& previous)
+ {
+     nvs_handle_t handle;
+     auto error = nvs_open(NVS_NAMESPACE, NVS_READWRITE, &handle);
+     if (error != ESP_OK) return fail(error);
+ 
+-    uint8_t mask = 0;
+-    for (size_t i = 0; i < TOGGLE_COUNT; ++i) {
+-        if (states[i]) mask |= 1u << i;
++    const uint8_t mask = stock_mask(states);
++#if CONFIG_STACKCHAN_DSH_APP_CENTER_SHORTCUT
++    // Toggling only DSH leaves even pre-mask factory preferences untouched.
++    if (mask != stock_mask(previous)) error = nvs_set_u8(handle, MASK_KEY, mask);
++    if (error == ESP_OK && states[DSH_INDEX] != previous[DSH_INDEX]) {
++        error = nvs_set_u8(handle, TOGGLE_LIST[DSH_INDEX].key, states[DSH_INDEX]);
+     }
+-    // One value stores the complete selection, including Reset. Do not leave
+-    // six independently updated keys after a partially failed reset.
++#else
++    // Keep the six factory toggles in one value, including Reset.
+     error = nvs_set_u8(handle, MASK_KEY, mask);
++#endif
+     if (error == ESP_OK) error = nvs_commit(handle);
+     nvs_close(handle);
+     return error == ESP_OK ? true : fail(error);
+diff --git a/firmware/main/hal/hal_toggles.h b/firmware/main/hal/hal_toggles.h
+index 235b41f..7a631f0 100644
+--- a/firmware/main/hal/hal_toggles.h
++++ b/firmware/main/hal/hal_toggles.h
+@@ -1,5 +1,6 @@
+ // Adapted from ThisIsBenny's StackChan PR #31.
+ #pragma once
++#include "sdkconfig.h"
+ #include <array>
+ #include <cstddef>
+ #include <cstdint>
+@@ -9,7 +10,13 @@ namespace hal_toggles {
+ inline constexpr const char* NVS_NAMESPACE = "feature_toggles";
+ inline constexpr const char* MASK_KEY      = "visible_mask";
+ 
+-enum class App { AiAgent, Avatar, EspnowRemote, AppCenter, Ezdata, Dance, Count };
++enum class App {
++    AiAgent, Avatar, EspnowRemote, AppCenter, Ezdata, Dance,
++#if CONFIG_STACKCHAN_DSH_APP_CENTER_SHORTCUT
++    DshAgent,
++#endif
++    Count,
++};
+ inline constexpr size_t TOGGLE_COUNT = static_cast<size_t>(App::Count);
+ using ToggleStates                   = std::array<bool, TOGGLE_COUNT>;
+ 
+@@ -26,16 +33,25 @@ inline constexpr std::array<ToggleInfo, TOGGLE_COUNT> TOGGLE_LIST = {{
+     {"app_center", "APP.CENTER"},
+     {"ezdata", "EZDATA"},
+     {"dance", "DANCE"},
++#if CONFIG_STACKCHAN_DSH_APP_CENTER_SHORTCUT
++    {"dsh_visible", "DSH.AGENT"},
++#endif
+ }};
+ 
+ inline constexpr ToggleStates default_states()
+ {
+-    return {true, true, true, true, true, true};
++    ToggleStates states{};
++    states.fill(true);
++    return states;
+ }
+ 
+ // Associate persistent feature keys with actual Mooncake IDs at installation.
+ // Neither translated display names nor filtered menu positions identify an app.
+-inline std::array<int, TOGGLE_COUNT> registered_app_ids = {-1, -1, -1, -1, -1, -1};
++inline std::array<int, TOGGLE_COUNT> registered_app_ids = [] {
++    std::array<int, TOGGLE_COUNT> ids{};
++    ids.fill(-1);
++    return ids;
++}();
+ inline void register_app_id(App app, int app_id)
+ {
+     const auto index = static_cast<size_t>(app);
+@@ -53,6 +69,6 @@ inline bool is_app_enabled(int app_id, const ToggleStates& states)
+ 
+ // Load failures leave safe defaults. Saving never initializes or erases NVS.
+ bool load_states(ToggleStates& states);
+-bool save_states(const ToggleStates& states);
++bool save_states(const ToggleStates& states, const ToggleStates& previous);
+ 
+ }  // namespace hal_toggles
+diff --git a/firmware/main/hal/utils/ota/ota.c b/firmware/main/hal/utils/ota/ota.c
+index ef86a6f..a559021 100644
+--- a/firmware/main/hal/utils/ota/ota.c
++++ b/firmware/main/hal/utils/ota/ota.c
+@@ -127,7 +127,8 @@ esp_err_t my_esp_https_ota(const esp_https_ota_config_t *ota_config, void (*on_p
+     return ESP_OK;
+ }
+ 
+-void start_ota_update(const char *url, void (*on_progress)(int progress))
++void start_ota_update(const char *url, void (*on_progress)(int progress),
++                      void (*on_selected)(const void *), const void *context)
+ {
+     ESP_LOGI(TAG, "Starting OTA example task");
+ #ifdef CONFIG_EXAMPLE_FIRMWARE_UPGRADE_BIND_IF
+@@ -184,6 +185,7 @@ void start_ota_update(const char *url, void (*on_progress)(int progress))
+     ESP_LOGI(TAG, "Attempting to download update from %s", config.url);
+     esp_err_t ret = my_esp_https_ota(&ota_config, on_progress);
+     if (ret == ESP_OK) {
++        if (on_selected) on_selected(context);
+         ESP_LOGI(TAG, "OTA Succeed, Rebooting...");
+         esp_restart();
+     } else {
+diff --git a/firmware/main/hal/utils/ota/ota.h b/firmware/main/hal/utils/ota/ota.h
+index 8cd44a3..e74ae93 100644
+--- a/firmware/main/hal/utils/ota/ota.h
++++ b/firmware/main/hal/utils/ota/ota.h
+@@ -9,7 +9,8 @@
+ extern "C" {
+ #endif
+ 
+-void start_ota_update(const char* url, void (*on_progress)(int progress));
++void start_ota_update(const char* url, void (*on_progress)(int progress),
++                      void (*on_selected)(const void*), const void* context);
+ 
+ #ifdef __cplusplus
+ }
+diff --git a/firmware/main/main.cpp b/firmware/main/main.cpp
+index 1fb6408..6da2ea0 100644
+--- a/firmware/main/main.cpp
++++ b/firmware/main/main.cpp
+@@ -10,6 +10,9 @@
+ #include <apps/apps.h>
+ #include <hal/hal.h>
+ #include <hal/hal_toggles.h>
++#if CONFIG_STACKCHAN_DSH_APP_CENTER_SHORTCUT
++#include <apps/app_dsh_shortcut/app_dsh_shortcut.h>
++#endif
+ #if CONFIG_STACKCHAN_APP_CENTER_HOME
+ #include <cstdio>
+ #include <hal/app_center_home_menu.h>
+@@ -53,6 +56,10 @@ extern "C" void app_main(void)
+         hal_toggles::register_app_id(hal_toggles::App::Ezdata, GetMooncake().installApp(std::make_unique<AppEzdata>()));
+         hal_toggles::register_app_id(hal_toggles::App::Dance, GetMooncake().installApp(std::make_unique<AppDance>()));
+         GetMooncake().installApp(std::make_unique<AppSetup>());
++#if CONFIG_STACKCHAN_DSH_APP_CENTER_SHORTCUT
++        hal_toggles::register_app_id(hal_toggles::App::DshAgent,
++                                     GetMooncake().installApp(std::make_unique<AppDshShortcut>()));
++#endif
+ 
+         // Main loop
+         while (1) {

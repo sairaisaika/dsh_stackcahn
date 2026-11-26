@@ -1,0 +1,91 @@
+sequenceDiagram
+    autonumber
+    actor U as 用户
+    participant C as StackChan 设置 / VoicePanel
+    participant F as DSH 原生设置
+    participant R as Gateway / VoiceRemote
+    participant M as DSH Loader / 插件
+    participant H as VoiceRuntime
+    participant T as AgentTransport
+    participant B as Host bridge / LocalVoice
+    Note over C,B: V23 · 正式候选已用隔离配置档验收
+    loop 页面挂载及约 2 秒刷新（独立于长操作）
+      C->>R: L23 execute(snapshot)
+      R->>H: L24 owner 检查后 snapshot
+      H-->>C: phase / connected / canReconnect / pendingChanges
+    end
+    U->>C: L22 启动语音服务
+    C->>R: execute(start)
+    R->>H: start
+    H->>H: L25 冻结偏好，申请身份（V24）
+    alt 局域网 Wi-Fi
+      H->>T: 启动本机监听
+    else 外出中继
+      H->>H: 读取私有配置，核对活动配对
+    end
+    opt 启用语音播报
+      H->>B: L21 prewarmSynthesis，后台准备 Kokoro（V22）
+    end
+    H-->>C: listening；尚未采集
+    Note over U,H: 设备仍需显式连接；认证成功后方可开启语音
+    U->>C: 接通所选会话
+    C->>R: execute(connect)
+    R->>H: connect
+    opt 偏好一致且需要打开 USB 或外出中继
+      H->>T: 打开 USB，或出站加入中继（V53）
+      T-->>H: 认证 Agent hello，或错误及清理
+    end
+    alt 偏好已变化、设备未认证或清理未确认
+      H-->>C: 提示阻止接通的原因
+    else 条件满足
+      opt 旧连接中断，旧本地语音已清理
+        H->>T: 核对新认证连接处于 idle
+        H->>B: 结束旧租约，建立新语音桥
+      end
+      H->>B: L28 enter(冻结的 sessionId)
+      B->>B: 校验既有会话；acquire 后 activate（V22）
+      B-->>H: bridged 或失败 / recovering
+      H-->>C: active 或固定错误
+    end
+    opt 对话中保存另一个已有会话
+      U->>C: 选择并保存新会话
+      C->>F: 保存偏好及 revision，见 V8
+      F-->>H: 已接受偏好变化
+      H-->>C: snapshot 的 sessionId 保持原会话，pendingChanges=true
+      Note over C,H: 等待停止和关闭服务。下次启动读取新会话
+    end
+    opt 通道意外掉线
+      T-->>B: 关闭旧连接
+      B->>B: 取消旧回合输出，等待语音退出
+      H-->>C: fault；本地清理成功后可显式重连
+    end
+    opt 等待设备、接通过程或对话期间优先停止
+      U->>C: 停止对话
+      C->>R: execute(stop)，抢占普通请求
+      R->>H: stop；使旧操作代次失效
+      H->>B: stop；等待语音释放或取消尚未交接的预热
+      B-->>H: idle 或 recovering
+      H-->>C: listening 或 fault；保留身份锁，已认证时可重用连接
+    end
+    alt 显式关闭服务
+      U->>C: 关闭服务
+      C->>R: execute(shutdown)
+      R->>H: shutdown（有序清理见 V24）
+      H-->>C: stopped；保留设备未确认的错误
+    else DSH Loader 禁用插件
+      U->>M: 禁用已安装的 StackChan
+      par 回收本地资源
+        M->>H: L29 runtime.dispose（V24）
+        H-->>M: 停止或保留未知设备释放
+        M->>M: pairing.dispose
+      and 随插件撤销注册
+        M->>R: 注销 Remote，设备工具随作用域撤销
+      end
+      Note over M,B: 已提交的 DSH 回合仍在原会话完成
+    else 整个 Host 进程突然退出
+      Note over M,B: 旧连接关闭；设备依 V6 自行回收
+      U->>M: 重新打开同一 DSH 配置档
+      M->>H: 读回已保存偏好与会话选择
+      H-->>C: stopped；等待显式启动和连接
+      Note over M,B: 已完成的 DSH 历史随原会话读回
+    end

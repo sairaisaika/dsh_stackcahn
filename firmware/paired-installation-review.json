@@ -1,0 +1,37 @@
+{
+  "date": "2026-11-18",
+  "candidateSha256": "00ecdd1033de7059d088cff15aacf93e60ab8fc1572a2be6d19e0d41c417acaa",
+  "status": "blocked-not-installable",
+  "blockers": [
+    {
+      "id": "preserve-nvs",
+      "source": "firmware/main/hal/hal.cpp::Hal::init",
+      "finding": "NVS initialization errors NO_FREE_PAGES/NEW_VERSION_FOUND trigger whole-partition erase in the linked upstream path.",
+      "required": "Extension must fail closed without erasing original NVS; validate both failures and recovery. Explicit factory reset must not be used as recovery."
+    },
+    {
+      "id": "official-auth",
+      "source": "firmware/main/hal/utils/secret_logic/secret_logic.cpp",
+      "finding": "Candidate ELF links weak default auth and handshake functions. No demonstrated production-compatible authentication for App/account, BLE and avatar connections.",
+      "required": "Obtain a supported upstream authentication/build route or explicitly redesign to retain the original binary for original mode. Existing NVS and a matching server address alone do not prove compatibility. Do not extract production secrets or substitute a captured token."
+    },
+    {
+      "id": "shared-assets",
+      "source": "xiaozhi-esp32/main/application.cc::CheckAssetsVersion; main/assets.cc",
+      "finding": "Pending assets download can overwrite the shared assets partition. Generated assets differ from the device snapshot.",
+      "required": "Do not install generated assets. Disable automatic shared-asset replacement in the extension and prove original model/font loading before accepting the image."
+    },
+    {
+      "id": "boot-confirmation",
+      "source": "main/hal/hal.cpp; main/hal/hal_app_setup.cpp; xiaozhi-esp32/main/application.cc::CheckNewVersion",
+      "finding": "Upstream can mark an image valid after 20 seconds, after version check, or before setup reboot, without validating voice and App operation.",
+      "required": "Separate boot trial confirmation from ordinary startup. No automatic rollback promise based on these paths; retain USB rescue and verify deployed bootloader behavior."
+    },
+    {
+      "id": "shared-service-config",
+      "source": "xiaozhi-esp32/main/ota.cc::CheckVersion; main/hal/hal_ota.cpp; main/apps/app_setup",
+      "finding": "Original startup checks can update mqtt/websocket configuration; other official update paths may overwrite the retained original app slot.",
+      "required": "Audit all update/configuration writers. Restrict the first trial to a reviewed service route, block updates that overwrite the rescue slot, compare original namespaces and validate credential refresh behavior."
+    }
+  ]
+}

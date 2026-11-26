@@ -1,0 +1,32 @@
+stateDiagram-v2
+    direction TB
+    [*] --> Idle
+    state "尚未检查" as Idle
+    state "检查前置条件" as Prerequisites
+    state "下载与构建" as Building
+    state "离线自检" as Verifying
+    state "提交与发布" as Publishing
+    state "本次准备成功" as Ready
+    state "失败或取消" as Failed
+    Idle --> Prerequisites: 准备 / 修复
+    Prerequisites --> Building: 新候选且持锁
+    Prerequisites --> Verifying: 复用已发布环境
+    Prerequisites --> Failed: 缺工具 / 坏记录 / 忙
+    Building --> Verifying: 候选与收据落盘
+    Building --> Failed: 失败 / 取消
+    Verifying --> Publishing: 实际自检通过
+    Verifying --> Failed: 失败 / 取消
+    Publishing --> Ready: 正常退出且重读匹配
+    Publishing --> Failed: I/O / 回复丢失 / 取消
+    Ready --> Prerequisites: 显式复查 / 修复
+    Failed --> Prerequisites: 显式重试
+    note right of Building
+      V27 安装阶段
+      发布前保留旧 active
+      安装不启动设备
+    end note
+    note right of Failed
+      先等待进程清理
+      commit 后可能已发布
+      重读 active 确认事实
+    end note

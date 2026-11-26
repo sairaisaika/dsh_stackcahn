@@ -1,0 +1,22 @@
+sequenceDiagram
+    participant PMIC as Sion 电源管理芯片
+    participant Board as Sion 板级电源服务
+    participant Agent as 独立 DSH.AGENT
+    participant Host as Mac StackChan 插件
+    participant Settings as DSH 设置
+    participant Session as 已选 DSH 会话
+    loop 原有板级轮询
+        Board->>PMIC: 读取电量与充放电状态
+        PMIC-->>Board: 同轮读数或读取失败
+    end
+    Agent->>Host: 认证连接声明 battery:1
+    loop 对话活动期间，每两秒尝试上报
+        Agent->>Board: 读取近期的同轮采样
+        Board-->>Agent: 电量与充放电状态，或无有效采样
+        Agent-->>Host: 带连接代次的 battery_state
+    end
+    Settings->>Host: 刷新设备能力
+    Host-->>Settings: 当前读数或不可用
+    Session->>Host: 读取设备状态
+    Host-->>Session: 同一份只读能力快照
+    Note over Agent,Host: Stop、断线或超时后隐藏旧读数

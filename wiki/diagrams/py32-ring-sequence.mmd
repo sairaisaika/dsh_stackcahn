@@ -1,0 +1,34 @@
+sequenceDiagram
+    participant M as 舵机任务
+    participant P as 共享 PY32
+    participant B as PY32@0x6f
+    participant L as EspRingPort 夹具
+    Note over M,L: V45 舵机使用共享驱动；灯环通过 SDK 夹具
+    M->>P: 申请舵机所有权
+    P->>B: 添加 I²C 设备句柄
+    M->>P: 清低 VM_EN 后配置输出
+    P->>B: 保护低寄存器组中的其他位
+    M->>P: 显式上电和读回
+    L->>P: 申请灯环所有权
+    P-->>L: 复用同一设备句柄
+    L->>P: 配置 IO14、12 颗灯及全黑帧
+    L->>P: 提交 RGB565 小端帧
+    P->>B: 写 24 字节灯环 RAM
+    P->>B: 读回并逐字节比较
+    alt 帧一致
+        P->>B: 发送刷新命令
+        P-->>L: 寄存器路径通过
+    else I²C 失败或读回不同
+        P-->>L: 失败；需要清理
+    end
+    L->>P: 刷新全黑后释放灯环
+    alt 黑帧或关闭失败
+        P-->>L: 保留灯环所有权
+    else 释放成功
+        P-->>L: 舵机仍持有句柄
+    end
+    M->>P: 确认 VM_EN 为低后释放舵机
+    opt 最后一个所有者离开
+        P->>B: 移除设备句柄
+    end
+    Note over B,L: 实体发光、Stop/Home 与 DSH 工具待接入或验收

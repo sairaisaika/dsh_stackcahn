@@ -1,0 +1,1380 @@
+diff --git a/main/application.cc b/main/application.cc
+index 50096d8..93b562c 100644
+--- a/main/application.cc
++++ b/main/application.cc
+@@ -9,6 +9,7 @@
+ #include "mcp_server.h"
+ #include "mqtt_protocol.h"
+ #include "settings.h"
++#include "sion/backend_runtime.h"
+ #include "system_info.h"
+ #include "text_glyph_payload.h"
+ #include "websocket_protocol.h"
+@@ -175,6 +176,7 @@ void Application::Initialize() {
+ }
+ 
+ void Application::Run() {
++    main_task_handle_ = xTaskGetCurrentTaskHandle();
+     // Set the priority of the main task to 10
+     vTaskPrioritySet(nullptr, 10);
+ 
+@@ -238,7 +240,7 @@ void Application::Run() {
+             HandleStopListeningEvent();
+         }
+ 
+-        if (bits & MAIN_EVENT_SEND_AUDIO) {
++        if ((bits & MAIN_EVENT_SEND_AUDIO) && !sion_transition_) {
+             while (auto packet = audio_service_.PopPacketFromSendQueue()) {
+                 if (protocol_ && !protocol_->SendAudio(std::move(packet))) {
+                     // Drop the remaining packets. Leaving them in the queue would
+@@ -272,6 +274,7 @@ void Application::Run() {
+             }
+         }
+ 
++        sion::BackendRuntime::Get().Tick();
+         if (bits & MAIN_EVENT_CLOCK_TICK) {
+             clock_ticks_++;
+             auto display = Board::GetInstance().GetDisplay();
+@@ -315,6 +318,9 @@ void Application::HandleNetworkConnectedEvent() {
+ }
+ 
+ void Application::HandleNetworkDisconnectedEvent() {
++    sion::BackendRuntime::Get().Disconnected(protocol_epoch_.load());
++    if (sion_transition_)
++        return;
+     // Close current conversation when network disconnected
+     auto state = GetDeviceState();
+     if (state == kDeviceStateNotifying) {
+@@ -350,6 +356,7 @@ void Application::HandleActivationDoneEvent() {
+         display->SetChatMessage("system", "");
+     }
+ 
++    sion::BackendRuntime::Get().Start();
+     // Release OTA object after activation is complete
+     ota_.reset();
+     auto& board = Board::GetInstance();
+@@ -493,9 +500,15 @@ void Application::CheckNewVersion() {
+         retry_delay = 10;  // Reset retry delay
+ 
+         if (ota_->HasNewVersion()) {
++#if CONFIG_SION_DUAL_BACKEND
++            // Keep factory configuration/activation checks, but do not silently
++            // replace the paired extension with an unrelated stock application.
++            ESP_LOGW(TAG, "Firmware update available; Sion requires a reviewed update");
++#else
+             if (UpgradeFirmware(ota_->GetFirmwareUrl(), ota_->GetFirmwareVersion())) {
+                 return;  // This line will never be reached after reboot
+             }
++#endif
+             // If upgrade failed, continue to normal operation
+         }
+ 
+@@ -536,11 +549,11 @@ void Application::CheckNewVersion() {
+ void Application::InitializeProtocol() {
+     auto& board = Board::GetInstance();
+     auto display = board.GetDisplay();
+-    auto codec = board.GetAudioCodec();
+ 
+     display->SetStatus(Lang::Strings::LOADING_PROTOCOL);
+ 
+-    if (ota_->HasMqttConfig()) {
++    factory_uses_mqtt_ = ota_->HasMqttConfig() || !ota_->HasWebsocketConfig();
++    if (factory_uses_mqtt_) {
+         protocol_ = std::make_unique<MqttProtocol>();
+     } else if (ota_->HasWebsocketConfig()) {
+         protocol_ = std::make_unique<WebsocketProtocol>();
+@@ -549,99 +562,145 @@ void Application::InitializeProtocol() {
+         protocol_ = std::make_unique<MqttProtocol>();
+     }
+ 
+-    protocol_->OnConnected([this]() { DismissAlert(); });
++    BindProtocolCallbacks();
++    protocol_->Start();
++}
+ 
+-    protocol_->OnNetworkError([this](const std::string& message) {
+-        last_error_message_ = message;
+-        xEventGroupSetBits(event_group_, MAIN_EVENT_ERROR);
++void Application::BindProtocolCallbacks() {
++    auto& board = Board::GetInstance();
++    auto display = board.GetDisplay();
++    auto codec = board.GetAudioCodec();
++    const auto epoch = protocol_epoch_.load();
++    protocol_->OnConnected(
++        [this, epoch]() { ScheduleProtocolTask(epoch, [this]() { DismissAlert(); }); });
++
++    protocol_->OnNetworkError([this, epoch](const std::string& message) {
++        ScheduleProtocolTask(epoch, [this, epoch, message]() {
++            sion::BackendRuntime::Get().Disconnected(epoch);
++            if (sion_transition_)
++                return;
++            last_error_message_ = message;
++            xEventGroupSetBits(event_group_, MAIN_EVENT_ERROR);
++        });
+     });
+ 
+-    protocol_->OnIncomingAudio([this](std::unique_ptr<AudioStreamPacket> packet) {
+-        if (GetDeviceState() == kDeviceStateSpeaking) {
+-            audio_service_.PushPacketToDecodeQueue(std::move(packet));
+-        }
++    protocol_->OnIncomingAudio([this, epoch](std::unique_ptr<AudioStreamPacket> packet) {
++        auto shared = std::shared_ptr<AudioStreamPacket>(std::move(packet));
++        ScheduleProtocolTask(epoch, [this, shared]() {
++            if (GetDeviceState() == kDeviceStateSpeaking)
++                audio_service_.PushPacketToDecodeQueue(
++                    std::make_unique<AudioStreamPacket>(std::move(*shared)));
++        });
+     });
+ 
+-    protocol_->OnAudioChannelOpened([this, codec, &board]() {
+-        board.SetPowerSaveLevel(PowerSaveLevel::PERFORMANCE);
+-        if (protocol_->server_sample_rate() != codec->output_sample_rate()) {
+-            ESP_LOGW(TAG,
+-                     "Server sample rate %d does not match device output sample rate %d, "
+-                     "resampling may cause distortion",
+-                     protocol_->server_sample_rate(), codec->output_sample_rate());
+-        }
++    protocol_->OnAudioChannelOpened([this, epoch, codec, &board]() {
++        ScheduleProtocolTask(epoch, [this, codec, &board]() {
++            board.SetPowerSaveLevel(PowerSaveLevel::PERFORMANCE);
++            if (protocol_->server_sample_rate() != codec->output_sample_rate()) {
++                ESP_LOGW(TAG,
++                         "Server sample rate %d does not match device output sample rate %d, "
++                         "resampling may cause distortion",
++                         protocol_->server_sample_rate(), codec->output_sample_rate());
++            }
++        });
+     });
+ 
+-    protocol_->OnAudioChannelClosed([this, &board]() {
+-        board.SetPowerSaveLevel(PowerSaveLevel::LOW_POWER);
+-        Schedule([this]() {
++    protocol_->OnAudioChannelClosed([this, epoch, &board]() {
++        ScheduleProtocolTask(epoch, [this, epoch, &board]() {
++            sion::BackendRuntime::Get().Disconnected(epoch);
++            if (sion_transition_)
++                return;
++            board.SetPowerSaveLevel(PowerSaveLevel::LOW_POWER);
+             auto display = Board::GetInstance().GetDisplay();
+             display->SetChatMessage("system", "");
+             SetDeviceState(kDeviceStateIdle);
+         });
+     });
+ 
+-    protocol_->OnIncomingJson([this, display](const cJSON* root) {
+-        // Parse JSON data
+-        auto type = cJSON_GetObjectItem(root, "type");
+-        if (!cJSON_IsString(type)) {
+-            ESP_LOGW(TAG, "Incoming JSON message has no type");
++    protocol_->OnIncomingJson([this, epoch, display](const cJSON* input) {
++        auto owned = std::shared_ptr<cJSON>(cJSON_Duplicate(input, true), cJSON_Delete);
++        if (!owned)
+             return;
+-        }
+-        if (strcmp(type->valuestring, "notify") == 0) {
+-            auto audio_url = cJSON_GetObjectItem(root, "audio_url");
+-            if (!cJSON_IsString(audio_url) || audio_url->valuestring[0] == '\0') {
+-                ESP_LOGW(TAG, "Notify message requires audio_url");
++        ScheduleProtocolTask(epoch, [this, epoch, display, owned]() {
++            const cJSON* root = owned.get();
++            // Parse JSON data
++            auto type = cJSON_GetObjectItem(root, "type");
++            if (!cJSON_IsString(type)) {
++                ESP_LOGW(TAG, "Incoming JSON message has no type");
+                 return;
+             }
++            if (strcmp(type->valuestring, "notify") == 0) {
++                auto audio_url = cJSON_GetObjectItem(root, "audio_url");
++                if (!cJSON_IsString(audio_url) || audio_url->valuestring[0] == '\0') {
++                    ESP_LOGW(TAG, "Notify message requires audio_url");
++                    return;
++                }
+ 
+-            std::vector<NotifySubtitle> subtitles;
+-            auto subtitles_json = cJSON_GetObjectItem(root, "subtitles");
+-            if (subtitles_json != nullptr && !cJSON_IsArray(subtitles_json)) {
+-                ESP_LOGW(TAG, "Notify subtitles must be an array");
+-                return;
+-            }
+-            if (cJSON_IsArray(subtitles_json)) {
+-                cJSON* item = nullptr;
+-                cJSON_ArrayForEach (item, subtitles_json) {
+-                    auto start_ms = cJSON_GetObjectItem(item, "start_ms");
+-                    auto text = cJSON_GetObjectItem(item, "text");
+-                    if (!cJSON_IsNumber(start_ms) || start_ms->valuedouble < 0 ||
+-                        start_ms->valuedouble > std::numeric_limits<uint32_t>::max() ||
+-                        !cJSON_IsString(text)) {
+-                        ESP_LOGW(TAG, "Ignoring invalid notify subtitle");
+-                        continue;
++                std::vector<NotifySubtitle> subtitles;
++                auto subtitles_json = cJSON_GetObjectItem(root, "subtitles");
++                if (subtitles_json != nullptr && !cJSON_IsArray(subtitles_json)) {
++                    ESP_LOGW(TAG, "Notify subtitles must be an array");
++                    return;
++                }
++                if (cJSON_IsArray(subtitles_json)) {
++                    cJSON* item = nullptr;
++                    cJSON_ArrayForEach (item, subtitles_json) {
++                        auto start_ms = cJSON_GetObjectItem(item, "start_ms");
++                        auto text = cJSON_GetObjectItem(item, "text");
++                        if (!cJSON_IsNumber(start_ms) || start_ms->valuedouble < 0 ||
++                            start_ms->valuedouble > std::numeric_limits<uint32_t>::max() ||
++                            !cJSON_IsString(text)) {
++                            ESP_LOGW(TAG, "Ignoring invalid notify subtitle");
++                            continue;
++                        }
++                        subtitles.push_back(
++                            {.start_ms = static_cast<uint32_t>(start_ms->valuedouble),
++                             .text = text->valuestring});
+                     }
+-                    subtitles.push_back({.start_ms = static_cast<uint32_t>(start_ms->valuedouble),
+-                                         .text = text->valuestring});
+                 }
+-            }
+ 
+-            Schedule([this, url = std::string(audio_url->valuestring),
+-                      subtitles = std::move(subtitles)]() mutable {
+-                StartNotification(std::move(url), std::move(subtitles));
+-            });
+-        } else if (strcmp(type->valuestring, "tts") == 0) {
+-            auto state = cJSON_GetObjectItem(root, "state");
+-            if (!cJSON_IsString(state)) {
+-                return;
+-            }
+-            if (strcmp(state->valuestring, "start") == 0) {
+-                Schedule([this]() {
+-                    aborted_ = false;
+-                    SetDeviceState(kDeviceStateSpeaking);
++                ScheduleProtocolTask(epoch, [this, url = std::string(audio_url->valuestring),
++                                             subtitles = std::move(subtitles)]() mutable {
++                    StartNotification(std::move(url), std::move(subtitles));
+                 });
+-            } else if (strcmp(state->valuestring, "stop") == 0) {
+-                Schedule([this]() {
+-                    if (GetDeviceState() == kDeviceStateSpeaking) {
+-                        if (listening_mode_ == kListeningModeManualStop) {
+-                            SetDeviceState(kDeviceStateIdle);
+-                        } else {
+-                            SetDeviceState(kDeviceStateListening);
++            } else if (strcmp(type->valuestring, "tts") == 0) {
++                auto state = cJSON_GetObjectItem(root, "state");
++                if (!cJSON_IsString(state)) {
++                    return;
++                }
++                if (strcmp(state->valuestring, "start") == 0) {
++                    ScheduleProtocolTask(epoch, [this]() {
++                        aborted_ = false;
++                        SetDeviceState(kDeviceStateSpeaking);
++                    });
++                } else if (strcmp(state->valuestring, "stop") == 0) {
++                    ScheduleProtocolTask(epoch, [this]() {
++                        if (GetDeviceState() == kDeviceStateSpeaking) {
++                            if (listening_mode_ == kListeningModeManualStop) {
++                                SetDeviceState(kDeviceStateIdle);
++                            } else {
++                                SetDeviceState(kDeviceStateListening);
++                            }
++                        }
++                    });
++                } else if (strcmp(state->valuestring, "sentence_start") == 0) {
++                    auto text = cJSON_GetObjectItem(root, "text");
++                    if (cJSON_IsString(text)) {
++                        std::vector<TextGlyph> glyphs;
++                        uint8_t bpp = 0;
++                        if (!TextGlyphPayload::Parse(root, glyphs, bpp)) {
++                            glyphs.clear();
+                         }
++                        ESP_LOGI(TAG, "<< %s", text->valuestring);
++                        ScheduleProtocolTask(
++                            epoch, [display, message = std::string(text->valuestring),
++                                    glyphs = std::move(glyphs), bpp]() {
++                                display->AddTextGlyphs(glyphs, bpp);
++                                display->SetChatMessage("assistant", message.c_str());
++                            });
+                     }
+-                });
+-            } else if (strcmp(state->valuestring, "sentence_start") == 0) {
++                }
++            } else if (strcmp(type->valuestring, "stt") == 0) {
+                 auto text = cJSON_GetObjectItem(root, "text");
+                 if (cJSON_IsString(text)) {
+                     std::vector<TextGlyph> glyphs;
+@@ -649,85 +708,72 @@ void Application::InitializeProtocol() {
+                     if (!TextGlyphPayload::Parse(root, glyphs, bpp)) {
+                         glyphs.clear();
+                     }
+-                    ESP_LOGI(TAG, "<< %s", text->valuestring);
+-                    Schedule([display, message = std::string(text->valuestring),
+-                              glyphs = std::move(glyphs), bpp]() {
++                    ESP_LOGI(TAG, ">> %s", text->valuestring);
++                    ScheduleProtocolTask(epoch, [display, message = std::string(text->valuestring),
++                                                 glyphs = std::move(glyphs), bpp]() {
+                         display->AddTextGlyphs(glyphs, bpp);
+-                        display->SetChatMessage("assistant", message.c_str());
++                        display->SetChatMessage("user", message.c_str());
+                     });
+                 }
+-            }
+-        } else if (strcmp(type->valuestring, "stt") == 0) {
+-            auto text = cJSON_GetObjectItem(root, "text");
+-            if (cJSON_IsString(text)) {
+-                std::vector<TextGlyph> glyphs;
+-                uint8_t bpp = 0;
+-                if (!TextGlyphPayload::Parse(root, glyphs, bpp)) {
+-                    glyphs.clear();
++            } else if (strcmp(type->valuestring, "llm") == 0) {
++                auto emotion = cJSON_GetObjectItem(root, "emotion");
++                if (cJSON_IsString(emotion)) {
++                    ScheduleProtocolTask(
++                        epoch, [display, emotion_str = std::string(emotion->valuestring)]() {
++                            display->SetEmotion(emotion_str.c_str());
++                        });
+                 }
+-                ESP_LOGI(TAG, ">> %s", text->valuestring);
+-                Schedule([display, message = std::string(text->valuestring),
+-                          glyphs = std::move(glyphs), bpp]() {
+-                    display->AddTextGlyphs(glyphs, bpp);
+-                    display->SetChatMessage("user", message.c_str());
+-                });
+-            }
+-        } else if (strcmp(type->valuestring, "llm") == 0) {
+-            auto emotion = cJSON_GetObjectItem(root, "emotion");
+-            if (cJSON_IsString(emotion)) {
+-                Schedule([display, emotion_str = std::string(emotion->valuestring)]() {
+-                    display->SetEmotion(emotion_str.c_str());
+-                });
+-            }
+-        } else if (strcmp(type->valuestring, "mcp") == 0) {
+-            auto payload = cJSON_GetObjectItem(root, "payload");
+-            if (cJSON_IsObject(payload)) {
+-                McpServer::GetInstance().ParseMessage(payload);
+-            }
+-        } else if (strcmp(type->valuestring, "system") == 0) {
+-            auto command = cJSON_GetObjectItem(root, "command");
+-            if (cJSON_IsString(command)) {
+-                ESP_LOGI(TAG, "System command: %s", command->valuestring);
+-                if (strcmp(command->valuestring, "reboot") == 0) {
+-                    // Do a reboot if user requests a OTA update
+-                    Schedule([this]() { Reboot(); });
++            } else if (strcmp(type->valuestring, "mcp") == 0) {
++                auto payload = cJSON_GetObjectItem(root, "payload");
++                if (cJSON_IsObject(payload)) {
++                    McpServer::GetInstance().ParseMessage(payload);
++                }
++            } else if (strcmp(type->valuestring, "system") == 0) {
++                if (sion::BackendRuntime::Get().Local())
++                    return;
++                auto command = cJSON_GetObjectItem(root, "command");
++                if (cJSON_IsString(command)) {
++                    ESP_LOGI(TAG, "System command: %s", command->valuestring);
++                    if (strcmp(command->valuestring, "reboot") == 0) {
++                        // Do a reboot if user requests a OTA update
++                        ScheduleProtocolTask(epoch, [this]() { Reboot(); });
++                    } else {
++                        ESP_LOGW(TAG, "Unknown system command: %s", command->valuestring);
++                    }
++                }
++            } else if (strcmp(type->valuestring, "alert") == 0) {
++                auto status = cJSON_GetObjectItem(root, "status");
++                auto message = cJSON_GetObjectItem(root, "message");
++                auto emotion = cJSON_GetObjectItem(root, "emotion");
++                if (cJSON_IsString(status) && cJSON_IsString(message) && cJSON_IsString(emotion)) {
++                    Alert(status->valuestring, message->valuestring, emotion->valuestring,
++                          Lang::Sounds::OGG_VIBRATION);
+                 } else {
+-                    ESP_LOGW(TAG, "Unknown system command: %s", command->valuestring);
++                    ESP_LOGW(TAG, "Alert command requires status, message and emotion");
+                 }
+-            }
+-        } else if (strcmp(type->valuestring, "alert") == 0) {
+-            auto status = cJSON_GetObjectItem(root, "status");
+-            auto message = cJSON_GetObjectItem(root, "message");
+-            auto emotion = cJSON_GetObjectItem(root, "emotion");
+-            if (cJSON_IsString(status) && cJSON_IsString(message) && cJSON_IsString(emotion)) {
+-                Alert(status->valuestring, message->valuestring, emotion->valuestring,
+-                      Lang::Sounds::OGG_VIBRATION);
+-            } else {
+-                ESP_LOGW(TAG, "Alert command requires status, message and emotion");
+-            }
+ #if CONFIG_RECEIVE_CUSTOM_MESSAGE
+-        } else if (strcmp(type->valuestring, "custom") == 0) {
+-            auto payload = cJSON_GetObjectItem(root, "payload");
+-            CJsonStringUniquePtr root_json(cJSON_PrintUnformatted(root));
+-            ESP_LOGI(TAG, "Received custom message: %s", root_json ? root_json.get() : "");
+-            if (cJSON_IsObject(payload)) {
+-                CJsonStringUniquePtr payload_json(cJSON_PrintUnformatted(payload));
+-                if (payload_json) {
+-                    Schedule(
+-                        [this, display, payload_str = std::string(payload_json.get())]() {
+-                            display->SetChatMessage("system", payload_str.c_str());
+-                        });
++            } else if (strcmp(type->valuestring, "custom") == 0) {
++                auto payload = cJSON_GetObjectItem(root, "payload");
++                CJsonStringUniquePtr root_json(cJSON_PrintUnformatted(root));
++                ESP_LOGI(TAG, "Received custom message: %s", root_json ? root_json.get() : "");
++                if (cJSON_IsObject(payload)) {
++                    CJsonStringUniquePtr payload_json(cJSON_PrintUnformatted(payload));
++                    if (payload_json) {
++                        ScheduleProtocolTask(
++                            epoch,
++                            [this, display, payload_str = std::string(payload_json.get())]() {
++                                display->SetChatMessage("system", payload_str.c_str());
++                            });
++                    }
++                } else {
++                    ESP_LOGW(TAG, "Invalid custom message format: missing payload");
+                 }
++#endif
+             } else {
+-                ESP_LOGW(TAG, "Invalid custom message format: missing payload");
++                ESP_LOGW(TAG, "Unknown message type: %s", type->valuestring);
+             }
+-#endif
+-        } else {
+-            ESP_LOGW(TAG, "Unknown message type: %s", type->valuestring);
+-        }
++        });
+     });
+-
+-    protocol_->Start();
+ }
+ 
+ void Application::Alert(const char* status, const char* message, const char* emotion,
+@@ -759,6 +805,10 @@ void Application::StartListening() { xEventGroupSetBits(event_group_, MAIN_EVENT
+ void Application::StopListening() { xEventGroupSetBits(event_group_, MAIN_EVENT_STOP_LISTENING); }
+ 
+ void Application::HandleToggleChatEvent() {
++    if (sion::BackendRuntime::Get().Busy() || sion::BackendRuntime::Get().Local()) {
++        sion::BackendRuntime::Get().PhysicalReturn();
++        return;
++    }
+     auto state = GetDeviceState();
+ 
+     if (state == kDeviceStateNotifying) {
+@@ -801,6 +851,8 @@ void Application::HandleToggleChatEvent() {
+ }
+ 
+ void Application::ContinueOpenAudioChannel(ListeningMode mode) {
++    if (sion_transition_)
++        return;
+     // Check state again in case it was changed during scheduling
+     if (GetDeviceState() != kDeviceStateConnecting) {
+         return;
+@@ -824,6 +876,8 @@ void Application::ContinueOpenAudioChannel(ListeningMode mode) {
+ }
+ 
+ void Application::HandleStartListeningEvent() {
++    if (sion_transition_)
++        return;
+     auto state = GetDeviceState();
+ 
+     if (state == kDeviceStateNotifying) {
+@@ -860,6 +914,8 @@ void Application::HandleStartListeningEvent() {
+ }
+ 
+ void Application::HandleStopListeningEvent() {
++    if (sion_transition_)
++        return;
+     auto state = GetDeviceState();
+ 
+     if (state == kDeviceStateNotifying) {
+@@ -877,6 +933,8 @@ void Application::HandleStopListeningEvent() {
+ }
+ 
+ void Application::HandleWakeWordDetectedEvent() {
++    if (sion_transition_)
++        return;
+     if (!protocol_) {
+         return;
+     }
+@@ -914,6 +972,8 @@ void Application::HandleWakeWordDetectedEvent() {
+ }
+ 
+ void Application::BeginWakeWordInvoke(const std::string& wake_word) {
++    if (sion_transition_)
++        return;
+     // Must run in the main task with the device in idle state
+     audio_service_.EncodeWakeWord();
+ 
+@@ -938,6 +998,8 @@ void Application::BeginWakeWordInvoke(const std::string& wake_word) {
+ }
+ 
+ void Application::ContinueWakeWordInvoke(const std::string& wake_word) {
++    if (sion_transition_)
++        return;
+     // Check state again in case it was changed during scheduling
+     if (GetDeviceState() != kDeviceStateConnecting) {
+         return;
+@@ -976,6 +1038,8 @@ void Application::ContinueWakeWordInvoke(const std::string& wake_word) {
+ }
+ 
+ void Application::HandleStateChangedEvent() {
++    if (sion_transition_)
++        return;
+     DeviceState new_state = state_machine_.GetState();
+     clock_ticks_ = 0;
+     // Any state change invalidates a pending deferred listening start;
+@@ -1052,6 +1116,8 @@ void Application::HandleStateChangedEvent() {
+ }
+ 
+ void Application::StartListeningAudio() {
++    if (sion_transition_)
++        return;
+     // Runs in the main loop, either directly from HandleStateChangedEvent or
+     // deferred via MAIN_EVENT_PLAYBACK_DRAINED once the playback queue drains.
+     if (GetDeviceState() != kDeviceStateListening) {
+@@ -1148,6 +1214,12 @@ void Application::HandleNotificationFinished(uint32_t playback_id, bool success)
+ }
+ 
+ void Application::Schedule(std::function<void()>&& callback) {
++    if (xTaskGetCurrentTaskHandle() == main_task_handle_ && protocol_context_) {
++        auto epoch = *protocol_context_;
++        callback = [this, epoch, task = std::move(callback)]() mutable {
++            ScheduleProtocolTask(epoch, std::move(task));
++        };
++    }
+     {
+         std::lock_guard<std::mutex> lock(mutex_);
+         main_tasks_.push_back(std::move(callback));
+@@ -1156,6 +1228,8 @@ void Application::Schedule(std::function<void()>&& callback) {
+ }
+ 
+ void Application::AbortSpeaking(AbortReason reason) {
++    if (sion_transition_)
++        return;
+     ESP_LOGI(TAG, "Abort speaking");
+     aborted_ = true;
+     if (protocol_) {
+@@ -1173,6 +1247,10 @@ ListeningMode Application::GetDefaultListeningMode() const {
+ }
+ 
+ void Application::Reboot() {
++    if (sion_transition_ || sion::BackendRuntime::Get().Local()) {
++        sion::BackendRuntime::Get().PhysicalReturn();
++        return;
++    }
+     ESP_LOGI(TAG, "Rebooting...");
+     if (GetDeviceState() == kDeviceStateNotifying) {
+         StopNotification();
+@@ -1189,6 +1267,8 @@ void Application::Reboot() {
+ }
+ 
+ bool Application::UpgradeFirmware(const std::string& url, const std::string& version) {
++    if (sion_transition_ || sion::BackendRuntime::Get().Local())
++        return false;
+     auto& board = Board::GetInstance();
+     auto display = board.GetDisplay();
+ 
+@@ -1273,7 +1353,7 @@ void Application::WakeWordInvoke(const std::string& wake_word) {
+         Schedule([this]() { AbortSpeaking(kAbortReasonNone); });
+     } else if (state == kDeviceStateListening) {
+         Schedule([this]() {
+-            if (protocol_) {
++            if (!sion_transition_ && !sion::BackendRuntime::Get().Local() && protocol_) {
+                 protocol_->CloseAudioChannel();
+             }
+         });
+@@ -1281,6 +1361,8 @@ void Application::WakeWordInvoke(const std::string& wake_word) {
+ }
+ 
+ bool Application::CanEnterSleepMode() {
++    if (sion_transition_ || sion::BackendRuntime::Get().Local())
++        return false;
+     if (GetDeviceState() != kDeviceStateIdle) {
+         return false;
+     }
+@@ -1304,7 +1386,7 @@ void Application::RegisterMcpBroadcastCallback(std::function<void(const std::str
+ void Application::SendMcpMessage(const std::string& payload) {
+     // Always schedule to run in main task for thread safety
+     Schedule([this, payload]() {
+-        if (protocol_) {
++        if (protocol_ && !sion_transition_) {
+             protocol_->SendMcpMessage(payload);
+         }
+         if (mcp_broadcast_callback_) {
+@@ -1314,8 +1396,12 @@ void Application::SendMcpMessage(const std::string& payload) {
+ }
+ 
+ void Application::SetAecMode(AecMode mode) {
++    if (sion_transition_ || sion::BackendRuntime::Get().Local())
++        return;
+     aec_mode_ = mode;
+     Schedule([this]() {
++        if (sion_transition_ || sion::BackendRuntime::Get().Local())
++            return;
+         auto& board = Board::GetInstance();
+         auto display = board.GetDisplay();
+         switch (aec_mode_) {
+@@ -1344,6 +1430,10 @@ void Application::PlaySound(const std::string_view& sound) { audio_service_.Play
+ 
+ void Application::ResetProtocol() {
+     Schedule([this]() {
++        if (sion_transition_ || sion::BackendRuntime::Get().Local()) {
++            sion::BackendRuntime::Get().PhysicalReturn();
++            return;
++        }
+         if (GetDeviceState() == kDeviceStateNotifying) {
+             StopNotification();
+         }
+@@ -1355,3 +1445,134 @@ void Application::ResetProtocol() {
+         protocol_.reset();
+     });
+ }
++
++void Application::ScheduleProtocolTask(uint64_t epoch, std::function<void()> task) {
++    if (epoch != protocol_epoch_.load())
++        return;
++    if (xTaskGetCurrentTaskHandle() == main_task_handle_) {
++        if (sion_transition_) {
++            if (deferred_protocol_tasks_.size() < 32)
++                deferred_protocol_tasks_.push_back([this, epoch, task = std::move(task)]() mutable {
++                    ScheduleProtocolTask(epoch, std::move(task));
++                });
++            else
++                sion_job_result_.store(2);
++            return;
++        }
++        const auto previous = protocol_context_;
++        protocol_context_ = epoch;
++        task();
++        protocol_context_ = previous;
++        return;
++    }
++    if (protocol_tasks_.fetch_add(1) >= 32) {
++        protocol_tasks_.fetch_sub(1);
++        return;
++    }
++    Schedule([this, epoch, task = std::move(task)]() mutable {
++        protocol_tasks_.fetch_sub(1);
++        ScheduleProtocolTask(epoch, std::move(task));
++    });
++}
++
++bool Application::SionCanEnter() const {
++    auto state = GetDeviceState();
++    return !sion_transition_ && !sion_job_running_.load() && protocol_ &&
++           (state == kDeviceStateIdle || state == kDeviceStateListening ||
++            state == kDeviceStateSpeaking);
++}
++void Application::SionQuiesce(uint64_t epoch) {
++    protocol_epoch_.store(epoch);
++    sion_transition_ = true;
++    deferred_protocol_tasks_.clear();
++    pending_listening_start_ = false;
++    play_popup_on_listening_ = false;
++    if (GetDeviceState() == kDeviceStateNotifying)
++        StopNotification();
++    audio_service_.BeginBackendHandoff();
++    xEventGroupClearBits(event_group_, MAIN_EVENT_SEND_AUDIO | MAIN_EVENT_WAKE_WORD_DETECTED |
++                                           MAIN_EVENT_ERROR | MAIN_EVENT_PLAYBACK_DRAINED);
++    SetDeviceState(kDeviceStateIdle);
++    Board::GetInstance().GetDisplay()->SetStatus("Switching assistant...");
++}
++bool Application::SionIsQuiescent() {
++    if (sion_job_running_.load() || !audio_service_.IsBackendHandoffQuiescent())
++        return false;
++    // Network close/destruction can wait for SDK tasks. Keep it off the main
++    // loop so physical return and lease processing stay responsive.
++    if (protocol_) {
++        protocol_->PrepareForHandoff();
++        sion_job_running_.store(true);
++        if (xTaskCreate(
++                [](void* arg) {
++                    auto* app = static_cast<Application*>(arg);
++                    app->protocol_->CloseAudioChannel();
++                    app->protocol_.reset();
++                    app->sion_job_running_.store(false);
++                    app->Schedule([] {});
++                    vTaskDelete(nullptr);
++                },
++                "sion_close", 8192, this, 2, nullptr) != pdPASS)
++            sion_job_running_.store(false);
++        return false;
++    }
++    return true;
++}
++void Application::SionConnect(bool local, uint64_t epoch, const std::string& url,
++                              const std::string& token) {
++    if (local)
++        protocol_ = std::make_unique<WebsocketProtocol>(
++            WebsocketEndpoint{url, token, 1, sion::BackendRuntime::Get().LocalNetwork()});
++    else if (factory_uses_mqtt_)
++        protocol_ = std::make_unique<MqttProtocol>();
++    else
++        protocol_ = std::make_unique<WebsocketProtocol>();
++    sion_job_epoch_ = epoch;
++    sion_job_result_.store(0);
++    BindProtocolCallbacks();
++    sion_job_running_.store(true);
++    // Blocking socket/hello operations run away from main/audio tasks. No other caller
++    // may touch protocol_ until this worker reports completion.
++    if (xTaskCreate(
++            [](void* arg) {
++                auto* app = static_cast<Application*>(arg);
++                bool ready = app->protocol_->Start() && app->protocol_->OpenAudioChannel();
++                int pending = 0;
++                app->sion_job_result_.compare_exchange_strong(pending, ready ? 1 : 2);
++                app->sion_job_running_.store(false);
++                app->Schedule([] {});
++                vTaskDelete(nullptr);
++            },
++            "sion_connect", 8192, this, 2, nullptr) != pdPASS) {
++        sion_job_result_.store(2);
++        sion_job_running_.store(false);
++    }
++}
++sion::Result Application::SionConnectionResult(uint64_t epoch) {
++    if (epoch != sion_job_epoch_ || sion_job_running_.load())
++        return sion::Result::Pending;
++    return sion_job_result_.load() == 1 ? sion::Result::Ready : sion::Result::Failed;
++}
++bool Application::SionActivate(bool local, uint64_t epoch) {
++    if (epoch != protocol_epoch_.load())
++        return false;
++    sion_transition_ = false;
++    audio_service_.EndBackendHandoff();
++    last_error_message_.clear();
++    SetDeviceState(kDeviceStateIdle);
++    // Explicitly restore wake processing even when state was already idle.
++    HandleStateChangedEvent();
++    if (local) {
++        listening_mode_ = kListeningModeRealtime;
++        SetDeviceState(kDeviceStateListening);
++        HandleStateChangedEvent();
++    }
++    auto pending = std::move(deferred_protocol_tasks_);
++    for (auto& task : pending)
++        task();
++    // A close/error may have been deferred during the handshake. Replaying it
++    // must not turn a disconnected original backend into a ready receipt.
++    if (epoch != protocol_epoch_.load() || !protocol_ || !protocol_->IsAudioChannelOpened())
++        return false;
++    return local ? audio_service_.IsAudioProcessorRunning() : audio_service_.IsWakeWordRunning();
++}
+diff --git a/main/application.h b/main/application.h
+index 68f01d1..e362917 100644
+--- a/main/application.h
++++ b/main/application.h
+@@ -1,42 +1,44 @@
+ #ifndef _APPLICATION_H_
+ #define _APPLICATION_H_
+ 
++#include <esp_timer.h>
+ #include <freertos/FreeRTOS.h>
+ #include <freertos/event_groups.h>
+ #include <freertos/task.h>
+-#include <esp_timer.h>
+ 
+-#include <string>
+-#include <mutex>
++#include <cstdint>
+ #include <deque>
+-#include <memory>
+ #include <functional>
+-#include <cstdint>
++#include <memory>
++#include <mutex>
++#include <string>
+ #include <vector>
+ 
+-#include "protocol.h"
+-#include "ota.h"
++#include <atomic>
++#include <optional>
+ #include "audio_service.h"
+ #include "device_state.h"
+ #include "device_state_machine.h"
+ #include "notify/notify_player.h"
++#include "ota.h"
++#include "protocol.h"
++#include "sion/mode_controller.h"
+ 
+ // Main event bits
+-#define MAIN_EVENT_SCHEDULE             (1 << 0)
+-#define MAIN_EVENT_SEND_AUDIO           (1 << 1)
+-#define MAIN_EVENT_WAKE_WORD_DETECTED   (1 << 2)
+-#define MAIN_EVENT_VAD_CHANGE           (1 << 3)
+-#define MAIN_EVENT_ERROR                (1 << 4)
+-#define MAIN_EVENT_ACTIVATION_DONE      (1 << 5)
+-#define MAIN_EVENT_CLOCK_TICK           (1 << 6)
+-#define MAIN_EVENT_NETWORK_CONNECTED    (1 << 7)
++#define MAIN_EVENT_SCHEDULE (1 << 0)
++#define MAIN_EVENT_SEND_AUDIO (1 << 1)
++#define MAIN_EVENT_WAKE_WORD_DETECTED (1 << 2)
++#define MAIN_EVENT_VAD_CHANGE (1 << 3)
++#define MAIN_EVENT_ERROR (1 << 4)
++#define MAIN_EVENT_ACTIVATION_DONE (1 << 5)
++#define MAIN_EVENT_CLOCK_TICK (1 << 6)
++#define MAIN_EVENT_NETWORK_CONNECTED (1 << 7)
+ #define MAIN_EVENT_NETWORK_DISCONNECTED (1 << 8)
+-#define MAIN_EVENT_TOGGLE_CHAT          (1 << 9)
+-#define MAIN_EVENT_START_LISTENING      (1 << 10)
+-#define MAIN_EVENT_STOP_LISTENING       (1 << 11)
+-#define MAIN_EVENT_STATE_CHANGED        (1 << 12)
+-#define MAIN_EVENT_PLAYBACK_DRAINED     (1 << 13)
+-
++#define MAIN_EVENT_TOGGLE_CHAT (1 << 9)
++#define MAIN_EVENT_START_LISTENING (1 << 10)
++#define MAIN_EVENT_STOP_LISTENING (1 << 11)
++#define MAIN_EVENT_STATE_CHANGED (1 << 12)
++#define MAIN_EVENT_PLAYBACK_DRAINED (1 << 13)
+ 
+ enum AecMode {
+     kAecOff,
+@@ -70,7 +72,7 @@ public:
+ 
+     DeviceState GetDeviceState() const { return state_machine_.GetState(); }
+     bool IsVoiceDetected() const { return audio_service_.IsVoiceDetected(); }
+-    
++
+     /**
+      * Request state transition
+      * Returns true if transition was successful
+@@ -85,7 +87,8 @@ public:
+     /**
+      * Alert with status, message, emotion and optional sound
+      */
+-    void Alert(const char* status, const char* message, const char* emotion = "", const std::string_view& sound = "");
++    void Alert(const char* status, const char* message, const char* emotion = "",
++               const std::string_view& sound = "");
+     void DismissAlert();
+ 
+     void AbortSpeaking(AbortReason reason);
+@@ -118,13 +121,19 @@ public:
+     AecMode GetAecMode() const { return aec_mode_; }
+     void PlaySound(const std::string_view& sound);
+     AudioService& GetAudioService() { return audio_service_; }
+-    
++
+     /**
+      * Reset protocol resources (thread-safe)
+      * Can be called from any task to release resources allocated after network connected
+      * This includes closing audio channel, resetting protocol and ota objects
+      */
+     void ResetProtocol();
++    bool SionCanEnter() const;
++    void SionQuiesce(uint64_t epoch);
++    bool SionIsQuiescent();
++    void SionConnect(bool local, uint64_t epoch, const std::string& url, const std::string& token);
++    sion::Result SionConnectionResult(uint64_t epoch);
++    bool SionActivate(bool local, uint64_t epoch);
+ 
+ private:
+     Application();
+@@ -133,6 +142,18 @@ private:
+     std::mutex mutex_;
+     std::deque<std::function<void()>> main_tasks_;
+     std::unique_ptr<Protocol> protocol_;
++    bool factory_uses_mqtt_ = true;
++    bool sion_transition_ = false;
++    std::atomic<uint64_t> protocol_epoch_{0};
++    std::atomic<unsigned> protocol_tasks_{0};
++    std::deque<std::function<void()>> deferred_protocol_tasks_;
++    std::optional<uint64_t> protocol_context_;
++    TaskHandle_t main_task_handle_ = nullptr;
++    std::atomic<bool> sion_job_running_{false};
++    std::atomic<int> sion_job_result_{0};
++    uint64_t sion_job_epoch_ = 0;
++    void BindProtocolCallbacks();
++    void ScheduleProtocolTask(uint64_t epoch, std::function<void()> task);
+     EventGroupHandle_t event_group_ = nullptr;
+     esp_timer_handle_t clock_timer_handle_ = nullptr;
+     DeviceStateMachine state_machine_;
+@@ -149,12 +170,13 @@ private:
+     bool has_server_time_ = false;
+     bool aborted_ = false;
+     bool assets_version_checked_ = false;
+-    bool play_popup_on_listening_ = false;  // Flag to play popup sound after state changes to listening
+-    bool pending_listening_start_ = false;  // Waiting for playback to drain before starting listening (auto mode)
++    bool play_popup_on_listening_ =
++        false;  // Flag to play popup sound after state changes to listening
++    bool pending_listening_start_ =
++        false;  // Waiting for playback to drain before starting listening (auto mode)
+     int clock_ticks_ = 0;
+     TaskHandle_t activation_task_handle_ = nullptr;
+ 
+-
+     // Event handlers
+     void HandleStateChangedEvent();
+     void HandleToggleChatEvent();
+@@ -182,24 +204,21 @@ private:
+     void InitializeProtocol();
+     void SetListeningMode(ListeningMode mode);
+     ListeningMode GetDefaultListeningMode() const;
+-    
++
+     // State change handler called by state machine
+     void OnStateChanged(DeviceState old_state, DeviceState new_state);
+ };
+ 
+-
+ class TaskPriorityReset {
+ public:
+     TaskPriorityReset(BaseType_t priority) {
+         original_priority_ = uxTaskPriorityGet(NULL);
+         vTaskPrioritySet(NULL, priority);
+     }
+-    ~TaskPriorityReset() {
+-        vTaskPrioritySet(NULL, original_priority_);
+-    }
++    ~TaskPriorityReset() { vTaskPrioritySet(NULL, original_priority_); }
+ 
+ private:
+     BaseType_t original_priority_;
+ };
+ 
+-#endif // _APPLICATION_H_
++#endif  // _APPLICATION_H_
+diff --git a/main/audio/audio_engine.h b/main/audio/audio_engine.h
+index 7c2e191..8839cc0 100644
+--- a/main/audio/audio_engine.h
++++ b/main/audio/audio_engine.h
+@@ -15,13 +15,15 @@ class AudioEngine {
+ public:
+     virtual ~AudioEngine() = default;
+ 
+-    virtual bool Initialize(AudioCodec* codec, int frame_duration_ms, srmodel_list_t* models_list) = 0;
++    virtual bool Initialize(AudioCodec* codec, int frame_duration_ms,
++                            srmodel_list_t* models_list) = 0;
+     virtual void Feed(std::vector<int16_t>&& data) = 0;
+ 
+     virtual void EnableWakeWordDetection(bool enable) = 0;
+     virtual void EnableVoiceProcessing(bool enable) = 0;
+     virtual void EnableDeviceAec(bool enable) = 0;
+ 
++    virtual bool IsBackendQuiescent() const { return false; }
+     virtual bool HasWakeWord() const = 0;
+     virtual bool IsWakeWordDetectionEnabled() const = 0;
+     virtual bool IsVoiceProcessingEnabled() const = 0;
+diff --git a/main/audio/audio_service.cc b/main/audio/audio_service.cc
+index 7f7582b..b2a2934 100644
+--- a/main/audio/audio_service.cc
++++ b/main/audio/audio_service.cc
+@@ -88,12 +88,16 @@ void AudioService::Initialize(AudioCodec* codec) {
+         PushTaskToEncodeQueue(kAudioTaskTypeEncodeToSendQueue, std::move(data));
+     });
+     audio_engine_->OnVadStateChange([this](bool speaking) {
++        if (backend_hold_.load())
++            return;
+         voice_detected_ = speaking;
+         if (callbacks_.on_vad_change) {
+             callbacks_.on_vad_change(speaking);
+         }
+     });
+     audio_engine_->OnWakeWordDetected([this](const std::string& wake_word) {
++        if (backend_hold_.load())
++            return;
+         xEventGroupClearBits(event_group_, AS_EVENT_WAKE_WORD_RUNNING);
+         if (callbacks_.on_wake_word_detected) {
+             callbacks_.on_wake_word_detected(wake_word);
+@@ -273,6 +277,10 @@ void AudioService::AudioInputTask() {
+             }
+         }
+ 
++        if (backend_hold_.load()) {
++            vTaskDelay(pdMS_TO_TICKS(10));
++            continue;
++        }
+         if (audio_input_need_warmup_.exchange(false)) {
+             vTaskDelay(pdMS_TO_TICKS(120));
+             continue;
+@@ -310,10 +318,14 @@ void AudioService::AudioInputTask() {
+         if (bits & (AS_EVENT_WAKE_WORD_RUNNING | AS_EVENT_AUDIO_PROCESSOR_RUNNING)) {
+             int samples = 160;  // 10ms
+             std::vector<int16_t> data;
++            input_in_flight_.store(true);
+             if (ReadAudioData(data, 16000, samples)) {
+-                audio_engine_->Feed(std::move(data));
++                if (!backend_hold_.load())
++                    audio_engine_->Feed(std::move(data));
++                input_in_flight_.store(false);
+                 continue;
+             }
++            input_in_flight_.store(false);
+         }
+ 
+         // Read timeout/error should not terminate the input task.
+@@ -466,6 +478,8 @@ void AudioService::OpusCodecTask() {
+         if (!audio_encode_queue_.empty()) {
+             auto task = std::move(audio_encode_queue_.front());
+             audio_encode_queue_.pop_front();
++            const auto capture_generation = capture_generation_;
++            encode_in_flight_ = true;
+             audio_queue_cv_.notify_all();
+             lock.unlock();
+ 
+@@ -497,7 +511,8 @@ void AudioService::OpusCodecTask() {
+                             if (audio_send_queue_.size() >= MAX_SEND_PACKETS_IN_QUEUE) {
+                                 audio_send_queue_.pop_front();
+                             }
+-                            audio_send_queue_.push_back(std::move(packet));
++                            if (!backend_hold_.load() && capture_generation == capture_generation_)
++                                audio_send_queue_.push_back(std::move(packet));
+                         }
+                         if (callbacks_.on_send_queue_available) {
+                             callbacks_.on_send_queue_available();
+@@ -523,6 +538,8 @@ void AudioService::OpusCodecTask() {
+                          task.pcm.size(), encoder_frame_size_);
+             }
+             lock.lock();
++            encode_in_flight_ = false;
++            audio_queue_cv_.notify_all();
+         }
+     }
+ 
+@@ -575,6 +592,8 @@ void AudioService::PushTaskToEncodeQueue(AudioTaskType type, std::vector<int16_t
+     {
+         /* Push the task to the encode queue */
+         std::unique_lock<std::mutex> lock(audio_queue_mutex_);
++        if (backend_hold_.load())
++            return;
+ 
+         /* If the task is to send queue, we need to set the timestamp */
+         if (type == kAudioTaskTypeEncodeToSendQueue && !timestamp_queue_.empty()) {
+@@ -619,7 +638,7 @@ bool AudioService::PushPacketToDecodeQueue(std::unique_ptr<AudioStreamPacket> pa
+             return false;
+         }
+     }
+-    if (service_stopped_.load() || generation != playback_generation_) {
++    if (service_stopped_.load() || backend_hold_.load() || generation != playback_generation_) {
+         return false;
+     }
+     playback_drained_notified_ = false;
+@@ -659,6 +678,8 @@ std::unique_ptr<AudioStreamPacket> AudioService::PopWakeWordPacket() {
+ }
+ 
+ void AudioService::EnableWakeWordDetection(bool enable) {
++    if (enable && backend_hold_.load())
++        return;
+     ESP_LOGD(TAG, "%s wake word detection", enable ? "Enabling" : "Disabling");
+     if (enable) {
+         if (!InitializeAudioEngine()) {
+@@ -707,6 +728,8 @@ void AudioService::ReleaseWakeWordResources() {
+ }
+ 
+ void AudioService::EnableVoiceProcessing(bool enable) {
++    if (enable && backend_hold_.load())
++        return;
+     ESP_LOGD(TAG, "%s voice processing", enable ? "Enabling" : "Disabling");
+ 
+     if (enable) {
+@@ -732,6 +755,8 @@ void AudioService::EnableVoiceProcessing(bool enable) {
+ }
+ 
+ void AudioService::EnableAudioTesting(bool enable) {
++    if (enable && backend_hold_.load())
++        return;
+     ESP_LOGI(TAG, "%s audio testing", enable ? "Enabling" : "Disabling");
+     if (enable) {
+         xEventGroupSetBits(event_group_, AS_EVENT_AUDIO_TESTING_RUNNING);
+@@ -879,3 +904,25 @@ bool AudioService::InitializeAudioEngine() {
+     audio_engine_->EnableDeviceAec(device_aec_enabled_);
+     return true;
+ }
++
++void AudioService::BeginBackendHandoff() {
++    backend_hold_.store(true);
++    EnableVoiceProcessing(false);
++    EnableWakeWordDetection(false);
++    // Testing is not an allowed source mode; do not swap its buffer to playback.
++    xEventGroupClearBits(event_group_, AS_EVENT_AUDIO_TESTING_RUNNING);
++    ResetDecoder();
++    std::lock_guard<std::mutex> lock(audio_queue_mutex_);
++    ++capture_generation_;
++    audio_encode_queue_.clear();
++    audio_send_queue_.clear();
++    audio_testing_queue_.clear();
++    audio_queue_cv_.notify_all();
++}
++bool AudioService::IsBackendHandoffQuiescent() {
++    std::lock_guard<std::mutex> lock(audio_queue_mutex_);
++    return backend_hold_.load() && !input_in_flight_.load() && !encode_in_flight_ &&
++           IsPlaybackDrainedLocked() && audio_encode_queue_.empty() && audio_send_queue_.empty() &&
++           (!audio_engine_initialized_ || audio_engine_->IsBackendQuiescent());
++}
++void AudioService::EndBackendHandoff() { backend_hold_.store(false); }
+diff --git a/main/audio/audio_service.h b/main/audio/audio_service.h
+index f8b510f..57119fd 100644
+--- a/main/audio/audio_service.h
++++ b/main/audio/audio_service.h
+@@ -146,6 +146,9 @@ public:
+     void PlaySound(const std::string_view& sound);
+     bool ReadAudioData(std::vector<int16_t>& data, int sample_rate, int samples);
+     void ResetDecoder();
++    void BeginBackendHandoff();
++    bool IsBackendHandoffQuiescent();
++    void EndBackendHandoff();
+     void SetModelsList(srmodel_list_t* models_list);
+ 
+ private:
+@@ -191,6 +194,10 @@ private:
+     FixedQueue<AudioTask, MAX_ENCODE_TASKS_IN_QUEUE> audio_encode_queue_;
+     FixedQueue<AudioTask, MAX_PLAYBACK_TASKS_IN_QUEUE> audio_playback_queue_;
+     bool decode_in_flight_ = false;
++    bool encode_in_flight_ = false;
++    uint64_t capture_generation_ = 0;
++    std::atomic<bool> backend_hold_{false};
++    std::atomic<bool> input_in_flight_{false};
+     bool output_in_flight_ = false;
+     bool playback_drained_notified_ = true;
+     uint32_t playback_generation_ = 0;
+diff --git a/main/audio/engines/afe_audio_engine.cc b/main/audio/engines/afe_audio_engine.cc
+index 3823d10..b6ff105 100644
+--- a/main/audio/engines/afe_audio_engine.cc
++++ b/main/audio/engines/afe_audio_engine.cc
+@@ -431,6 +431,11 @@ void AfeAudioEngine::ProcessingTask() {
+             continue;
+         }
+ 
++        processing_output_.store(true);
++        if (generation != control_generation_.load()) {
++            processing_output_.store(false);
++            continue;
++        }
+         EventBits_t bits = xEventGroupGetBits(event_group_);
+         if (bits & kWakeWordEnabled) {
+             HandleWakeWordResult(result);
+@@ -438,6 +443,7 @@ void AfeAudioEngine::ProcessingTask() {
+         if (kUseAfeForVoiceProcessing && (bits & kVoiceProcessingEnabled)) {
+             HandleVoiceResult(result);
+         }
++        processing_output_.store(false);
+     }
+ }
+ 
+diff --git a/main/audio/engines/afe_audio_engine.h b/main/audio/engines/afe_audio_engine.h
+index 789a7e6..d5cdcee 100644
+--- a/main/audio/engines/afe_audio_engine.h
++++ b/main/audio/engines/afe_audio_engine.h
+@@ -32,6 +32,10 @@ public:
+     void EnableVoiceProcessing(bool enable) override;
+     void EnableDeviceAec(bool enable) override;
+ 
++    bool IsBackendQuiescent() const override {
++        return !processing_output_.load() && !IsVoiceProcessingEnabled() &&
++               !IsWakeWordDetectionEnabled();
++    }
+     bool HasWakeWord() const override;
+     bool IsWakeWordDetectionEnabled() const override;
+     bool IsVoiceProcessingEnabled() const override;
+@@ -65,6 +69,7 @@ private:
+     esp_afe_sr_data_t* afe_data_ = nullptr;
+     EventGroupHandle_t event_group_ = nullptr;
+     TaskHandle_t processing_task_ = nullptr;
++    std::atomic<bool> processing_output_{false};
+     StaticTask_t* processing_task_buffer_ = nullptr;
+     StackType_t* processing_task_stack_ = nullptr;
+     int frame_samples_ = 0;
+diff --git a/main/protocols/mqtt_protocol.cc b/main/protocols/mqtt_protocol.cc
+index 75c4209..d3819f4 100644
+--- a/main/protocols/mqtt_protocol.cc
++++ b/main/protocols/mqtt_protocol.cc
+@@ -37,6 +37,14 @@ MqttProtocol::MqttProtocol() {
+     esp_timer_create(&reconnect_timer_args, &reconnect_timer_);
+ }
+ 
++void MqttProtocol::PrepareForHandoff() {
++    // Scheduled reconnect/goodbye work checks this shared tombstone. Invalidate
++    // it on the main task before a worker can destroy this object.
++    alive_->store(false);
++    if (reconnect_timer_)
++        esp_timer_stop(reconnect_timer_);
++}
++
+ MqttProtocol::~MqttProtocol() {
+     ESP_LOGI(TAG, "MqttProtocol deinit");
+ 
+@@ -98,6 +106,8 @@ bool MqttProtocol::StartMqttClient(bool report_error) {
+     mqtt_->SetKeepAlive(keepalive_interval);
+ 
+     mqtt_->OnDisconnected([this]() {
++        if (!alive_->load())
++            return;
+         if (on_disconnected_ != nullptr) {
+             on_disconnected_();
+         }
+@@ -216,8 +226,7 @@ bool MqttProtocol::SendAudio(std::unique_ptr<AudioStreamPacket> packet) {
+             return false;
+         }
+         if (aes_nonce_.size() != kAudioHeaderSize || packet->payload.size() > UINT16_MAX) {
+-            ESP_LOGE(TAG, "Invalid AES nonce or audio payload length: %zu",
+-                     packet->payload.size());
++            ESP_LOGE(TAG, "Invalid AES nonce or audio payload length: %zu", packet->payload.size());
+             return false;
+         }
+         udp = udp_;
+diff --git a/main/protocols/mqtt_protocol.h b/main/protocols/mqtt_protocol.h
+index 960e14b..72514d6 100644
+--- a/main/protocols/mqtt_protocol.h
++++ b/main/protocols/mqtt_protocol.h
+@@ -1,22 +1,21 @@
+ #ifndef MQTT_PROTOCOL_H
+ #define MQTT_PROTOCOL_H
+ 
+-
+-#include "protocol.h"
+-#include <mqtt.h>
+-#include <udp.h>
++#include <esp_timer.h>
+ #include <cJSON.h>
+-#include <psa/crypto.h>
+ #include <freertos/FreeRTOS.h>
+ #include <freertos/event_groups.h>
+-#include <esp_timer.h>
++#include <mqtt.h>
++#include <psa/crypto.h>
++#include <udp.h>
++#include "protocol.h"
+ 
++#include <atomic>
+ #include <functional>
+-#include <string>
+ #include <map>
+-#include <mutex>
+ #include <memory>
+-#include <atomic>
++#include <mutex>
++#include <string>
+ 
+ #define MQTT_PING_INTERVAL_SECONDS 90
+ #define MQTT_RECONNECT_INTERVAL_MS 60000
+@@ -37,7 +36,7 @@ public:
+ private:
+     // Alive flag for safe scheduled callbacks - set to false in destructor
+     std::shared_ptr<std::atomic<bool>> alive_ = std::make_shared<std::atomic<bool>>(true);
+-    
++
+     EventGroupHandle_t event_group_handle_;
+ 
+     std::string publish_topic_;
+@@ -58,14 +57,17 @@ private:
+     uint32_t remote_sequence_;
+     esp_timer_handle_t reconnect_timer_;
+ 
+-    bool StartMqttClient(bool report_error=false);
++public:
++    void PrepareForHandoff() override;
++
++    bool StartMqttClient(bool report_error = false);
+     void ParseServerHello(const cJSON* root);
+     bool DecodeHexString(const std::string& hex_string, std::string& decoded);
+-    bool CryptAesCtr(const uint8_t* input, size_t input_size, const uint8_t* nonce, uint8_t* output);
++    bool CryptAesCtr(const uint8_t* input, size_t input_size, const uint8_t* nonce,
++                     uint8_t* output);
+ 
+     bool SendText(const std::string& text) override;
+     std::string GetHelloMessage();
+ };
+ 
+-
+-#endif // MQTT_PROTOCOL_H
++#endif  // MQTT_PROTOCOL_H
+diff --git a/main/protocols/protocol.h b/main/protocols/protocol.h
+index cfa0dd2..9f029d0 100644
+--- a/main/protocols/protocol.h
++++ b/main/protocols/protocol.h
+@@ -57,6 +57,8 @@ public:
+     void OnDisconnected(std::function<void()> callback);
+ 
+     virtual bool Start() = 0;
++    // Fence transport-owned scheduled work on the main task before worker teardown.
++    virtual void PrepareForHandoff() {}
+     virtual bool OpenAudioChannel() = 0;
+     virtual void CloseAudioChannel(bool send_goodbye = true) = 0;
+     virtual bool IsAudioChannelOpened() const = 0;
+diff --git a/main/protocols/websocket_protocol.cc b/main/protocols/websocket_protocol.cc
+index e0e3df9..45c4bd5 100644
+--- a/main/protocols/websocket_protocol.cc
++++ b/main/protocols/websocket_protocol.cc
+@@ -14,7 +14,14 @@
+ 
+ WebsocketProtocol::WebsocketProtocol() { event_group_handle_ = xEventGroupCreate(); }
+ 
+-WebsocketProtocol::~WebsocketProtocol() { vEventGroupDelete(event_group_handle_); }
++WebsocketProtocol::WebsocketProtocol(WebsocketEndpoint endpoint) : WebsocketProtocol() {
++    endpoint_ = std::move(endpoint);
++}
++
++WebsocketProtocol::~WebsocketProtocol() {
++    websocket_.reset();
++    vEventGroupDelete(event_group_handle_);
++}
+ 
+ bool WebsocketProtocol::Start() {
+     // Only connect to server when audio channel is needed
+@@ -77,17 +84,28 @@ void WebsocketProtocol::CloseAudioChannel(bool send_goodbye) {
+ }
+ 
+ bool WebsocketProtocol::OpenAudioChannel() {
+-    Settings settings("websocket", false);
+-    std::string url = settings.GetString("url");
+-    std::string token = settings.GetString("token");
+-    int version = settings.GetInt("version");
++    std::string url;
++    std::string token;
++    int version;
++    if (endpoint_) {
++        url = endpoint_->url;
++        token = endpoint_->token;
++        version = endpoint_->version;
++    } else {
++        Settings settings("websocket", false);
++        url = settings.GetString("url");
++        token = settings.GetString("token");
++        version = settings.GetInt("version");
++    }
++    xEventGroupClearBits(event_group_handle_, WEBSOCKET_PROTOCOL_SERVER_HELLO_EVENT);
+     if (version != 0) {
+         version_ = version;
+     }
+ 
+     error_occurred_ = false;
+ 
+-    auto network = Board::GetInstance().GetNetwork();
++    auto network =
++        endpoint_ && endpoint_->network ? endpoint_->network : Board::GetInstance().GetNetwork();
+     websocket_ = network->CreateWebSocket(1);
+     if (websocket_ == nullptr) {
+         ESP_LOGE(TAG, "Failed to create websocket");
+diff --git a/main/protocols/websocket_protocol.h b/main/protocols/websocket_protocol.h
+index 48bbc00..b097c38 100644
+--- a/main/protocols/websocket_protocol.h
++++ b/main/protocols/websocket_protocol.h
+@@ -1,18 +1,27 @@
+ #ifndef _WEBSOCKET_PROTOCOL_H_
+ #define _WEBSOCKET_PROTOCOL_H_
+ 
+-
++#include <optional>
+ #include "protocol.h"
+ 
+-#include <web_socket.h>
++class NetworkInterface;
++struct WebsocketEndpoint {
++    std::string url;
++    std::string token;
++    int version = 1;
++    NetworkInterface* network = nullptr;
++};
++
+ #include <freertos/FreeRTOS.h>
+ #include <freertos/event_groups.h>
++#include <web_socket.h>
+ 
+ #define WEBSOCKET_PROTOCOL_SERVER_HELLO_EVENT (1 << 0)
+ 
+ class WebsocketProtocol : public Protocol {
+ public:
+     WebsocketProtocol();
++    explicit WebsocketProtocol(WebsocketEndpoint endpoint);
+     ~WebsocketProtocol();
+ 
+     bool Start() override;
+@@ -25,6 +34,7 @@ private:
+     EventGroupHandle_t event_group_handle_;
+     std::unique_ptr<WebSocket> websocket_;
+     int version_ = 1;
++    std::optional<WebsocketEndpoint> endpoint_;
+ 
+     void ParseServerHello(const cJSON* root);
+     bool SendText(const std::string& text) override;

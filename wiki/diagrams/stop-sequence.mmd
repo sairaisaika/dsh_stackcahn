@@ -1,0 +1,53 @@
+sequenceDiagram
+    autonumber
+    participant U as 设备触摸 / Home 控件
+    participant H as Mac VoiceBridge
+    participant M as app_main 所有者
+    participant S as AgentSession
+    participant L as SessionLifecycle
+    participant E as AudioEngine
+    participant W as 唯一音频 worker
+    participant C as CoreS3 codec / I2S
+    Note over U,C: V5 · 音频释放子路径；v8 还需等待 USB 维护 busy，见 V10；v18 相机汇总见 V31/V32；动作汇总见 V41
+    alt Mac 识别到停止（含合成预热期间）
+        H->>H: 发出合成取消
+        H->>S: 已认证连接发送 stop
+        S->>L: Stop(now)
+    else 设备触摸 Stop 或 Home
+        U->>M: 投递 Stop 或 Home intent
+        Note over M: 主循环 Home 优先于 Stop 和设置
+        M->>S: LocalStop(home, now)
+        S->>L: Stop(now) 或 Home(now)
+        Note over H,S: 设备本地退出时链路关闭；Mac 清理并保留释放未确认
+    end
+    L->>L: Fence：epoch 加一；进入 Draining
+    L->>E: Effects.StopResources → Stop(newEpoch)
+    E->>E: 清队列、更新 epoch、转 Closing
+    par worker 完成关闭
+        Note over W,C: 正在执行的一次 Read/Write 可以返回；不能因此确认已停
+        C-->>W: 进行中的 I/O 返回
+        W->>E: Pump 后续检查旧 epoch；丢弃迟到输入
+        W->>E: 下一次 Pump 处理 Closing
+        E->>C: 在 worker 内 Close：停 codec / I2S，清 TX DMA
+        C-->>E: 成功 / 失败
+    and 主任务持续检查
+        loop app_main 的 Tick；未确认前保持等待
+            M->>L: Tick(now)
+            L->>E: ResourcesStopped → Stopped(epoch)
+            E-->>L: Pending / Done / Failed
+        end
+    alt 超过 drain_ms 或关闭失败
+        L->>L: Fault；不报告 idle / 已回原助手
+    else Done 且没有 Home 请求
+        L->>L: Idle
+        opt Mac 原有连接仍在线
+            S-->>H: stopped / resources_stopped
+            H->>H: 本地进程也已退出后才确认空闲
+        end
+    else Done 且请求 Home
+        L->>M: ReturnHome(epoch)
+        M->>M: 显示本镜像 Entry 页面
+        M-->>L: Done → Home
+        Note over M,L: 独立入口另提供 Factory assistant → Return，等待资源空闲后软件重启
+    end
+    end

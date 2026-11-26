@@ -1,0 +1,37 @@
+sequenceDiagram
+    autonumber
+    participant U as 用户 / 设备主任务
+    participant M as PairingMaintenance
+    participant C as Mac SIONA1 客户端
+    participant W as USB 单工作任务
+    participant S as AgentPairingStore
+    Note over U,S: V10 · v35 配对和 Relay 经管道测试；真机 USB 待验收
+    U->>U: Pairing 页点击 Allow USB；确认生命周期与音频 Idle
+    U->>M: OpenWindow(now, 新 nonce)
+    M-->>U: 开启 120 秒一次性窗口 / 明确拒绝
+    C->>W: status 或 relay_status(request_id)
+    W->>M: Process 读取状态
+    M-->>W: 状态回复
+    W-->>C: 设备、旧 pair 和窗口；Relay 加脱敏状态和 revision
+    C->>C: 对照指定设备与旧身份；拒绝缺窗口/不可用
+    C->>W: RR15 配对或 Relay 写入，附设备、旧配对和窗口
+    W->>M: Process；严格字段/长度/深度检查
+    M->>M: 再验证身份、窗口、期限；消费窗口并置 busy
+    par USB worker 执行独立存储
+        M->>S: RR16 配对 Replace/Remove 或 WriteRelay
+        S-->>M: Saved / Unchanged / 拒绝 / 未确认
+        M->>S: RR17 读回身份和 Relay 状态
+        S-->>M: 当前绑定、Relay 版本或读取失败
+        M->>M: 更新快照、清 busy；读回异常不能报告成功
+        M-->>W: 仅脱敏状态与固定结果码
+        W-->>C: 有界 TX 尝试；丢失/短写不自动重放
+        C->>C: 匹配 request_id、设备和最终身份；不回显秘密
+    and 用户可继续 Stop / Back / Home
+        U->>M: CloseWindow；未提交请求失去授权
+        Note over U,M: 已开始的 NVS 提交不可强行撤销
+        loop Home 资源汇总
+            U->>M: Snapshot.busy
+            M-->>U: busy 时继续等待；超时 Fault
+        end
+    end
+    Note over C,S: 结果未确认先查对应状态；再次写入需要新的物理授权

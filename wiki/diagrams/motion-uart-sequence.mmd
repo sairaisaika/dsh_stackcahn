@@ -1,0 +1,53 @@
+sequenceDiagram
+    autonumber
+    participant P as ScsMotionPort
+    participant U as EspServoUart / SCS
+    participant N as 原 NVS（测试夹具）
+    participant D as ESP UART / GPIO（SDK 夹具）
+    participant B as EspServoPower
+    Note over P,B: V39 · 直接 Open 路径；生产先 Prepare 再供电，已准备时跳过 NVS/UART 重建，详见 V41
+    P->>U: Open(yaw_zero,pitch_zero)
+    U->>U: 取得进程内独占租约
+    U->>D: 检查 UART1 未被其他驱动占用
+    U->>N: NVS_READONLY：servo / zero_pos_1, zero_pos_2
+    N-->>U: 两个 i32 / 缺失、类型或读取错误
+    U->>N: 关闭已打开的 NVS handle
+    alt 标定完整且在 0..1000
+        U->>D: install（无 TX 缓冲）→ config（1Mbps）→ pin（6/7）
+        D-->>U: 每一步分别检查结果
+        opt 驱动与引脚设置均成功
+            U->>B: Ready()：检查供电状态
+            B-->>U: 可用 / 错误或不可用
+        end
+        U-->>P: 全部成功才返回零位；失败仍需 Close
+    else 无有效标定
+        U-->>P: false；不写默认值、不发送舵机命令
+    end
+    opt Open 成功后，每个 SCS 事务
+        U->>U: rFlush：重置 Healthy，固定 100ms 截止
+        U->>B: Ready()
+        U->>D: flush_input → tx_chars → wait_tx_done
+        D-->>U: 短写、flush 或等待失败均锁存错误
+        loop 截止内接收完整应答
+            U->>D: read_bytes（非阻塞）；空读让出 1 tick
+            D-->>U: 字节 / 错误
+            U->>U: 所有片段共用截止，慢速字节不能续期
+        end
+        U-->>P: SCS count / status / error + Healthy
+    end
+    Note over P,U: 可通信的 link 先经 ScsMotionPort 双轴禁用并读回；失败不进入 Close
+    P->>U: Close（或 Open 失败后的清理）
+    U->>D: 仅删除自己安装的 UART
+    D-->>U: 成功 / 失败保留所有权
+    opt UART 已删除或未安装
+        U->>D: 分别重置曾尝试配置的 GPIO6 / GPIO7
+        D-->>U: 逐引脚确认；失败保留待清理标记
+    end
+    alt 全部资源清理确认
+        U->>U: 归还进程租约
+        U-->>P: true
+    else 任一清理未确认
+        U-->>P: false；拒绝重新 Open
+        P->>U: 后续仅重试 Close，不再发扭矩报文
+    end
+    Note over U,B: UART 释放不表示供电关闭；供电关闭由 EspMotionPort 汇总，详见 V41

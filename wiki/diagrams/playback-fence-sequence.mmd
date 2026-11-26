@@ -1,0 +1,45 @@
+sequenceDiagram
+    autonumber
+    participant H as Mac AgentConnection
+    participant S as AgentSession
+    participant A as AudioEngine / I/O worker
+    participant C as CoreS3 codec
+    participant I as I2S TX ISR
+    Note over H,I: V20 · playback_fence:1；主机/SDK 夹具已测，真实声学未验收
+    opt 单独打断
+        H->>H: 拒绝未完成输出 Promise
+    end
+    H->>S: drain_output / interrupt_output；request、epoch、next_sequence
+    S->>S: 校验实际已接受输出边界
+    S->>A: RequestPlaybackFence(epoch, discard)
+    alt 自然排空
+        A->>C: Write 完已接受队列
+        S-->>H: output ACK 归还实际 Write 信用
+    else 单独打断
+        A->>A: 清软件输出队列；等待在途 Write 返回
+    end
+    A->>C: AgentBeginPlaybackFence(discard)
+    opt discard=true
+        C->>C: AW88298 静音；RX 保持
+    end
+    C->>C: 查询 DMA 容量；目标=当前发送字节+两轮容量
+    loop 屏障未完成；最多 2 秒
+        I->>C: on_sent：实际 DMA 进度；auto_clear 后续零数据
+        A->>C: Read mic/reference；PollPlaybackFence
+        A-->>S: 输入帧；Pending / Failed / Done
+        S-->>H: 输入仍持续；续租保持
+    end
+    alt 数字屏障完成
+        opt 打断后的输出静音
+            C->>C: 解除临时静音，保留原有效音量
+        end
+        C-->>A: Done
+        A-->>S: PlaybackFenceStatus=Done
+        S->>S: 补齐自然排空 ACK，或作废打断边界前信用
+        S-->>H: output_drained / output_interrupted
+        H->>H: 验证身份/边界；允许下一句，序号不重置
+    else 超时 / mute 错误 / ISR 异常
+        A->>A: PlaybackFence 错误；关闭资源
+        S-->>H: 关闭连接；不报告播放成功
+    end
+    Note over H,I: Stop/Home 可抢占；完整资源释放见 V5/V18；数字排空不代表房间回声为零

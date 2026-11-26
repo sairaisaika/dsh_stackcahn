@@ -1,0 +1,43 @@
+{
+  "date": "2026-11-18",
+  "officialFirmware": "1.6.2",
+  "result": "build-passed-not-flashed",
+  "sourceLock": "upstream.lock.json",
+  "artifacts": [
+    {
+      "path": "build/stack-chan.bin",
+      "bytes": 3777808,
+      "sha256": "1c799331d5cdcc5cd18ad4e619321677f4b462f22fab7c9b5c3bce9322e196e6"
+    },
+    {
+      "path": "build/bootloader/bootloader.bin",
+      "bytes": 24208,
+      "sha256": "7130c99b96f5ff7781ccaac85d0f677bd6b0db93eae586ddc39890329002aecc"
+    },
+    {
+      "path": "build/partition_table/partition-table.bin",
+      "bytes": 3072,
+      "sha256": "48da0866f56d9d8eb1fe786412984d8f1a4a01b3f13f965621fcb916761e1a4b"
+    },
+    {
+      "path": "build/ota_data_initial.bin",
+      "bytes": 8192,
+      "sha256": "7d2c7ac4888bfd75cd5f56e8d61f69595121183afc81556c876732fd3782c62f"
+    },
+    {
+      "path": "build/flasher_args.json",
+      "bytes": 1196,
+      "sha256": "2210985b6da335f3a7cd21e8a93f67478ffbfed8d3764335404f3c5bc0581ec3"
+    },
+    {
+      "path": "sdkconfig",
+      "bytes": 153219,
+      "sha256": "ea2c8038b1a628c7fa92716a977032d518391d8438a04377f6509663caba5379"
+    },
+    {
+      "path": "dependencies.lock",
+      "bytes": 29208,
+      "sha256": "636d39a630994317d1c72e337ba3626f8e2a2daf721a453039cf2bf5ad5248b0"
+    }
+  ]
+}

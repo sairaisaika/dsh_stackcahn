@@ -1,0 +1,59 @@
+sequenceDiagram
+    autonumber
+    participant E as MotionEngine
+    participant P as ScsMotionPort
+    participant L as ServoLink / EspServoUart
+    participant S as 固定上游 SCS 编解码
+    participant D as 两轴寄存器（测试模拟）
+    Note over E,D: V38 · 实际协议代码，未访问物理电机
+    E->>P: Open()
+    P->>L: Open(yaw_zero,pitch_zero)
+    L-->>P: 只读标定与 link / 失败（资源组合见 V41）
+    alt 标定与 link 有效
+        loop 两个轴
+            P->>S: writeByte(40,0)；Read(40,1)
+            S->>D: 扭矩关闭与读回请求
+            D-->>S: 状态包与扭矩值
+            S-->>P: count / status / error
+            P->>P: 检查 Healthy、应答与读回为 0
+        end
+        P->>S: Read：位置模式限值与两轴反馈
+        S-->>P: 已校验的数据 / 错误
+    else 无效
+        P-->>E: Open false；仍需 Release 清理 link
+    end
+    Note over P,D: 后续只在 Open 成功时执行；禁止改零点、EPROM 或模式
+    E->>P: Move(yaw,pitch,duration_ms)
+    P->>P: 两轴映射与原限值先检查；不 clamp
+    loop 两轴单独事务；任一失败停止下发
+        P->>S: genWrite(42,目标/时间/速度0)
+        S->>D: 有应答的 SRAM 位置命令
+        D-->>S: 应答（丢失仍可能已运动）
+        S-->>P: 逐事务检查 status / error / Healthy
+    end
+    opt 两个目标均确认
+        P->>S: 两轴扭矩启用与单字节读回
+        S-->>P: 已确认 / 失败
+    end
+    P-->>E: 接受 / 部分失败；均非到位证明
+    opt 命令接受且未取消
+        E->>P: Poll(sample)
+        P->>S: 每轴 Read(56,15)
+        S-->>P: 新鲜两轴反馈 / 拒绝损坏帧
+        P-->>E: 观测位置、moving、保护状态 / Failed
+    end
+    E->>P: Release（取消、错误或结束）
+    Note over P,L: 下列双轴操作仅在 link 已可通信时执行；Open 失败未取得可用 link 时只做 Close
+    loop 无论第一轴是否失败，都尝试第二轴
+        P->>S: writeByte(40,0) + Read(40,1)
+        S-->>P: 分别确认应答与扭矩 0
+    end
+    alt 两轴确认关闭
+        P->>L: Close()
+        L-->>P: 资源已释放 / 失败保留所有权
+        P-->>E: Done / Failed
+        Note over P,L: Close 失败后仅重试 Close，不再发送已完成的双轴禁用事务
+    else 关闭未确认
+        P-->>E: Failed；不关闭 link，不接受新动作
+    end
+    Note over E,D: Goal 寄存器可保留旧值；下次先覆盖目标再启用，释放不保证机械姿态保持

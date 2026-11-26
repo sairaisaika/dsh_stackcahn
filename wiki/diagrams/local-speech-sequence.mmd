@@ -1,0 +1,56 @@
+sequenceDiagram
+    autonumber
+    participant C as LocalVoice / 离线自检
+    participant A as WhisperBackend
+    participant W as C++ Whisper worker 或旧 CLI
+    participant T as KokoroBackend
+    participant K as Kokoro worker 进程
+    Note over C,K: V19 · 后端进程与清理；上层组合见 V22，用户实例与真机未验收
+    opt 托管 worker v1
+        C->>A: warmup(signal)
+        A->>W: 加载私有模型；等待 ready
+        W-->>A: ready(protocol=1)
+    end
+    loop 一次一条 16/24 kHz PCM
+        C->>A: L18 / L35 transcribe(PCM, language, signal)
+        A->>A: 限量；构造内存 WAV
+        alt 托管 worker v1
+            A->>W: L3 stdin 写长度、语言和 WAV
+            W-->>A: stdout 回有界文字和语言；保留模型
+        else 旧托管或自定义 CLI
+            A->>W: 逐句启动；stdin 写 WAV
+            W-->>A: 退出；私有 JSON
+            A->>A: 读结果；删除临时目录
+        end
+        A-->>C: 校验后交付 text / language
+    end
+    opt Stop、Home、断线、取消、超时或非法回复
+        C->>A: L7 abort / dispose，或识别自行失败
+        A->>W: 关闭管道并终止；必要时 SIGKILL
+        A-->>C: 等实际退出后释放
+    end
+    C->>T: synthesize(text, voice, rate, signal)
+    opt 尚未加载或上次失败
+        T->>T: L46 创建短私有工作目录
+        T->>K: spawn：模型 / 音色 / runtime-directory
+        K->>K: L46 长路径词典复制到短目录；校验 / 加载；离线
+        K-->>T: ready(protocol=1, rate=24000, channels=1)
+    end
+    T->>K: 单行请求；独立 request_id
+    loop 按消费者 next 拉取；最多 120 秒音频
+        alt 继续消费
+            K-->>T: PCM(sequence, base64)；受 pipe 背压限制
+            T->>T: 校验身份、顺序、长度和总量
+            T-->>C: yield PCM chunk
+        else 取消 / 超时 / 迭代提前结束
+            T->>K: SIGTERM；必要时 SIGKILL
+            T->>T: 关闭未读管道；等退出后删除 L46 目录
+            T-->>C: 结束迭代或固定错误；下次重新加载
+        end
+    end
+    opt 完整合成成功
+        K-->>T: done(frames)
+        T->>T: 核对帧数；保留 worker 供下一句
+        T-->>C: 迭代完成
+    end
+    Note over C,K: 生成完成不等于机器人播放完成；原助手、用户 DSH 会话未参与此测试

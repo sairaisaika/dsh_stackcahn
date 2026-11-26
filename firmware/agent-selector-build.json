@@ -1,0 +1,27 @@
+{
+  "profile": "independent-boot-selector-v1",
+  "idf": "fff9895c82d744c7237be8847347bdd1b07c6643",
+  "referenceConfigSha256": "d5fb31a7a0640b8db2cbf6f0a4cbfadc110aa7b2b133fe50a25ecf976cae7a38",
+  "generatedConfigSha256": "2413b6f410783f91993788e2614f9bb55b096effcfd5e4636f468595092943d9",
+  "referencePartitionsSha256": "4b6823597817f7ac9e32994329526ba44467279d39b57ceb934648747cdca6be",
+  "inputs": {
+    "scripts/build_agent_selector.py": "90a60d5ad1b83e4a6e4d3b10fca2a9510b0c5d89a7a27690188696f2c7f8d5dc",
+    "firmware/boot-selector/CMakeLists.txt": "744582b9f6e8e368bbc07fbdf36307cc91103f2e0ef23c232352882a4304e619",
+    "firmware/boot-selector/bootloader_components/main/CMakeLists.txt": "769518dd62f305bc720829c3898770ae521568e438f79c80a44d0b52957acc13",
+    "firmware/boot-selector/bootloader_components/main/bootloader_start.c": "633373130d405e4ecc7c5dacb52db5c05fabcb0e2d8c1934d96e9124a0cf0062",
+    "firmware/boot-selector/main/CMakeLists.txt": "1e33e2b6c6a395ed0d2b94aebe57f75ef9f529cb01d4dc21897d0e4f96527a31"
+  },
+  "artifacts": {
+    "bootloader.bin": {
+      "bytes": 23120,
+      "sha256": "55792ca98969dc3ee2f2311594bc2e9aa68001c72802de431b3b0eb5855460fe"
+    },
+    "bootloader.elf": {
+      "bytes": 664404,
+      "sha256": "a1a4ec037a4af0e936323af35abf922f0512ed6352449568753fe21b48ca5204"
+    }
+  },
+  "candidateOnly": true,
+  "installable": false,
+  "hardwareValidated": false
+}

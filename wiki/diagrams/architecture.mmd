@@ -1,0 +1,14 @@
+flowchart TB
+    U[用户选择已有会话及设备权限] --> UI[DSH StackChan 插件设置页<br/>原生配置已实现，未安装]
+    UI --> CFG[Host Config<br/>会话引用与语音偏好]
+    CFG -->|冻结偏好；VoiceRuntime 已接| B[VoiceBridge + DSH session adapter<br/>队列、代次、回合归属]
+    B --> D[选定 DSH 会话<br/>人格、记忆、模型、工具决策的所有者]
+    B -->|acquire / activate / speak / release| V[Mac LocalVoice<br/>ASR / TTS / 停止 / AEC 组合已测]
+    W[Wake 项目<br/>自定义词和主人声音，待实现] -. 声学事件 .-> V
+    V -. 认证 PCM 已接；真实无线待验收 .-> T[独立设备 Agent<br/>入口、设置、生命周期、音频已构建]
+    D -. 版本化能力工具，待接 .-> T
+    T --> H[硬件服务<br/>CoreS3 音频已接；相机、动作等待接]
+    T --> S[专用配置区适配<br/>区尚未安装；不写原厂绑定]
+    O[原厂 v1.6.2<br/>原语音与手机绑定保留] -. 手动往返入口待解决 .-> T
+    classDef pending fill:#fff2df,stroke:#b98132,stroke-dasharray:5 4;
+    class W pending;

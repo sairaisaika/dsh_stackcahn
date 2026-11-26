@@ -1,0 +1,23 @@
+sequenceDiagram
+    actor User as 使用者
+    participant DSH as DSH.AGENT
+    participant RTC as RTC SLOW<br/>两端预留 32 字节
+    participant Boot as 原版启动器
+    participant Factory as 原厂应用<br/>含 Home 接收方
+    User->>DSH: 从屏幕底边上滑，点 Home
+    DSH->>DSH: 等待音频、传感器、配对和连接释放<br/>核对另一槽为已确认且摘要匹配
+    alt 资源已释放且原厂校验通过
+        DSH->>RTC: 写原厂槽地址和校验字段，最后提交标志
+        DSH->>Boot: esp_restart()
+        Boot->>Boot: 待确认 DSH 槽标为 ABORTED
+        Boot->>Factory: 装载已确认的原厂槽
+        Factory->>RTC: 读取并立即清除标志
+        alt 软件重启且槽地址和 OTA 状态匹配
+            Factory-->>User: 本次显示主菜单
+        else 缺请求、失效或不匹配
+            Factory-->>User: 照常使用原有启动偏好
+        end
+    else 释放或校验失败
+        DSH-->>User: 保留 DSH 界面，允许重试 Home
+    end
+    Note over RTC,Factory: Home 请求只供一次启动使用<br/>原有 AI Agent 启动开关保存在原位置

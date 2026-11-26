@@ -1,0 +1,128 @@
+diff --git a/.github/workflows/ci.yml b/.github/workflows/ci.yml
+index d51f5f2..ec0b224 100644
+--- a/.github/workflows/ci.yml
++++ b/.github/workflows/ci.yml
+@@ -14,6 +14,8 @@ jobs:
+       - uses: actions/setup-node@v4
+         with:
+           node-version: 22
++      - name: Test Agent session behavior
++        run: node --test
+       - name: Syntax check all JS files
+         run: |
+           find . -name '*.js' -not -path './node_modules/*' -print0 | xargs -0 -n1 node --check
+diff --git a/lib/dsh-agent.js b/lib/dsh-agent.js
+index bf31cb9..0bbb4d7 100644
+--- a/lib/dsh-agent.js
++++ b/lib/dsh-agent.js
+@@ -90,6 +90,8 @@ function reasonKind(reason) {
+ export function createDshRunner({ ctx, log = () => {}, getConfig = () => ({}) }) {
+   /** @type {{ agent: any, dispose: () => Promise<void> } | null} */
+   let handle = null
++  // The active Agent keeps its original model even if the global default changes.
++  let activeModel = null
+   let lastError = null
+   let lastUsedAt = null
+   /** 当前 Agent 建立时使用的工作目录，用于判断配置变更后是否需要重建 */
+@@ -117,6 +119,7 @@ export function createDshRunner({ ctx, log = () => {}, getConfig = () => ({}) })
+     if (!handle) return
+     const current = handle
+     handle = null
++    activeModel = null
+     try {
+       await current.dispose()
+     } catch (error) {
+@@ -149,6 +152,7 @@ export function createDshRunner({ ctx, log = () => {}, getConfig = () => ({}) })
+       },
+     })
+     handle = created
++    activeModel = `${selection.provider}/${selection.model}`
+     lastCwd = cwd
+     await created.agent.whenIdle()
+     log('info', `已创建机器人会话 ${created.agent.session.id}（${selection.provider}/${selection.model}）`)
+@@ -257,7 +261,7 @@ export function createDshRunner({ ctx, log = () => {}, getConfig = () => ({}) })
+     }
+     return {
+       sessionId: handle?.agent?.session?.id ?? null,
+-      model: selection ? `${selection.provider}/${selection.model}` : null,
++      model: activeModel ?? (selection ? `${selection.provider}/${selection.model}` : null),
+       lastUsedAt,
+       lastError,
+     }
+diff --git a/test/dsh-agent.test.js b/test/dsh-agent.test.js
+new file mode 100644
+index 0000000..46cdd33
+--- /dev/null
++++ b/test/dsh-agent.test.js
+@@ -0,0 +1,71 @@
++import test from 'node:test'
++import assert from 'node:assert/strict'
++import { createDshRunner } from '../lib/dsh-agent.js'
++
++function fixture() {
++  let selection = { provider: 'provider-a', model: 'model-a' }
++  const created = []
++  const messages = []
++  const disposed = []
++  const services = {
++    agentDefaultModel: { currentSelection: () => selection },
++    sessions: { flush: async () => {} },
++    agents: {
++      create: async (options) => {
++        const events = []
++        const session = {
++          id: options.sessionId,
++          seq: 0,
++          snapshotEvents: (start) => events.slice(start),
++        }
++        const agent = {
++          session,
++          whenIdle: async () => {},
++          followup: (message) => {
++            messages.push(message)
++            events.push({ type: 'assistant/message', data: { message: {
++              content: [{ type: 'text', text: 'reply' }],
++            } } })
++            session.seq = events.length
++          },
++        }
++        const handle = { agent, dispose: async () => disposed.push(session.id) }
++        created.push({ options, handle })
++        return handle
++      },
++    },
++  }
++  const runner = createDshRunner({ ctx: { get: (name) => services[name] } })
++  return { runner, created, messages, disposed,
++    setSelection: (next) => { selection = next } }
++}
++
++test('status describes the active session model when the global default changes', async () => {
++  const f = fixture()
++  await f.runner.chat('hello')
++  const sessionId = f.runner.agentStatus().sessionId
++  f.setSelection({ provider: 'provider-b', model: 'model-b' })
++  await f.runner.chat('continue')
++  assert.equal(f.created.length, 1)
++  assert.equal(f.runner.agentStatus().sessionId, sessionId)
++  assert.equal(f.runner.agentStatus().model, 'provider-a/model-a')
++  await f.runner.chat('new conversation', { newSession: true })
++  assert.equal(f.created.length, 2)
++  assert.equal(f.disposed.length, 1)
++  assert.equal(f.runner.agentStatus().model, 'provider-b/model-b')
++  assert.notEqual(f.runner.agentStatus().sessionId, sessionId)
++  await f.runner.dispose()
++})
++
++test('cwd changes recreate the session and user text passes through unchanged', async () => {
++  const f = fixture()
++  const text = 'Keep my selected persona.\nDo not rewrite this message.'
++  await f.runner.chat(text, { cwd: '/workspace/one' })
++  await f.runner.chat('second', { cwd: '/workspace/two' })
++  assert.equal(f.created.length, 2)
++  assert.equal(f.disposed.length, 1)
++  assert.deepEqual(f.messages[0].content, [{ type: 'text', text }])
++  assert.equal(f.messages[0].role, 'user')
++  assert.deepEqual(f.created[1].options.meta, { cwd: '/workspace/two' })
++  await f.runner.dispose()
++})

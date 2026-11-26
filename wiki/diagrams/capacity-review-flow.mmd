@@ -1,0 +1,19 @@
+flowchart TD
+    A[保存备份 A/B + 校验记录] -->|K1 字节 / hash| V{身份与格式校验}
+    B[候选镜像 + 构建收据] -->|K2 size / hash / version| V
+    V -->|失败| E[拒绝生成报告]
+    V -->|通过| C[计算尾部应用空间
+起点对齐 64 KiB、占用对齐 4 KiB
+另留 16 KiB 配置]
+    C --> F{当前镜像能容纳?}
+    F -->|否| N[报告缺口]
+    F -->|是| Y[报告余量
+后续能力增长仍未知]
+    N -->|K3| J[JSON 容量报告
+signed remaining + fitsCurrentImage
+installable 始终 false]
+    Y -->|K3| J
+    J -->|K4| D[开发者继续审查
+启动 / 返回 / OTA / 恢复 / 增长]
+    D --> L[不访问设备、不生成分区表或启动选择
+真机写入另需具体方案与批准]

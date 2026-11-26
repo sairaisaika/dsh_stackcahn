@@ -1,0 +1,37 @@
+sequenceDiagram
+    autonumber
+    participant O as USB 维护所有者
+    participant S as AgentPairingStore
+    participant G as StorageGuard
+    participant N as sion_cfg / pairing
+    Note over O,N: V7 · v8 已接 USB 授权消费者；目标构建/主机检查通过，未做真机验收
+    O->>S: Replace(expectedId, record) 或 Remove(expectedId)
+    S->>S: Replace 先 ParsePairing；Remove 使用 tombstone {}
+    S->>G: 校验专用分区；只读加载当前身份
+    G->>N: 仅允许独立配置分区
+    N-->>S: Empty / Paired / Revoked / 读取故障
+    alt 缺分区、损坏、读错、ID 不符或非法记录
+        S-->>O: 拒绝；不把读错当首次配对
+    else 已是完全相同记录或已撤销
+        S-->>O: Unchanged；不写入
+    else 允许更新
+        S->>N: 以读写打开 pairing；再读 active 和当前记录
+        S->>N: 仅清理非活动槽；commit；检查 free_entries
+        alt 无空间或 SDK 错误
+            S-->>O: NoSpace / Uncertain；重新查询状态
+        else 有空间
+            S->>N: set_blob(非活动槽) → commit → 读回比较
+            alt 写入或读回未确认
+                S-->>O: Uncertain；不提交 active
+            else 记录一致
+                S->>N: set_u8(active, 新槽) → commit
+                S->>N: 再读 active 和它指向的记录
+                alt active / 记录未确认
+                    S-->>O: Uncertain；不能假定仍是旧身份
+                else 已确认新活动记录
+                    S-->>O: Saved
+                    Note over S,N: tombstone 生效后不回退旧槽；逻辑撤销不等于安全擦除
+                end
+            end
+        end
+    end

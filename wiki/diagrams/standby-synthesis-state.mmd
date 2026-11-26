@@ -1,0 +1,15 @@
+stateDiagram-v2
+    state "Mac 预备 Kokoro" as Warm
+    state "对话持有 Kokoro" as Leased
+    state "等待设备 Stop 回执" as Releasing
+    state "待命保留空闲 Kokoro" as Idle
+    state "退出 Kokoro" as Closed
+    [*] --> Warm: 启动播报语音服务
+    Warm --> Leased: 设备认证并接通已有会话
+    Warm --> Closed: Mac 停止或关闭服务
+    Leased --> Releasing: 说「停止」并结束输入
+    Releasing --> Idle: 设备已停止，合成空闲，待命有效
+    Releasing --> Closed: 合成在途，回执缺失或待命撤销
+    Idle --> Leased: 设备再次认证并接通
+    Idle --> Closed: Mac 撤销待命或关闭服务
+    Closed --> Warm: 设备已停止且待命有效，重新加载

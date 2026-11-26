@@ -1,0 +1,41 @@
+sequenceDiagram
+    autonumber
+    participant D as 已选 DSH 会话
+    participant T as 原生工具管线
+    participant R as VoiceRuntime
+    participant C as AgentConnection
+    participant S as 设备 AgentSession
+    participant A as DeviceExpression / Avatar
+    Note over D,A: V28 · 原生工具、TLS 与 C++ 已测；实际会话和真机尚未验收
+    D->>T: C1 stackchan_set_expression(expression)
+    T->>T: schema / 原有权限策略 / exec.signal
+    T->>R: C2 expression(exec.agent, value, signal)
+    alt 未接通 / 会话不符 / 偏好已变
+      R-->>T: 固定错误；不发设备命令
+      T-->>D: 原生工具错误
+    else 当前已接通的冻结会话
+      R->>C: C3 setExpression(value)
+      C->>C: hello expression=1 / active / 单请求
+      C->>S: C4 认证 WSS：boot / epoch / request / expression
+      S->>S: 严格解析 / 有效 Active 租约
+      S->>A: C5 SetExpression(value)，应用任务持有 LVGL
+      alt Avatar 页面显示
+        A->>A: 官方六值 Emotion / setEmotion
+        A-->>S: applied（渲染器已接受）
+      else 设置或其他页面
+        A-->>S: unavailable；不强行切页
+      end
+      S-->>C: C6 expression_result / 同一请求与代次
+      C-->>R: 匹配后才返回实际结果
+      R-->>T: version / expression / status
+      T-->>D: canonical value 与呈现
+    end
+    opt Stop / 断线 / 租约到期 / Home 抢占
+      C->>C: 拒绝待处理表情；不重放
+      S->>A: C7 ResetExpression：清回中性
+      Note over C,A: Stop 使用既有资源释放回执；工具取消或超时关闭连接，结果可能已应用
+    end
+    opt 用户离开 Avatar 页
+      A->>A: C8 先销毁 avatar，再销毁 parent
+      Note over S,A: 下一次进入从中性开始；不恢复旧请求
+    end

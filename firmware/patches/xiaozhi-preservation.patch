@@ -1,0 +1,174 @@
+diff --git a/main/ota.cc b/main/ota.cc
+--- a/main/ota.cc
++++ b/main/ota.cc
+@@ -1,3 +1,5 @@
++#include <sdkconfig.h>
++
+ #include "ota.h"
+ #include "system_info.h"
+ #include "settings.h"
+@@ -85,6 +87,22 @@
+  * Specification: https://ccnphfhqs21z.feishu.cn/wiki/FjW6wZmisimNBBkov6OcmfvknVd
+  */
+ NetworkResult<> Ota::CheckVersion() {
++#if CONFIG_SION_DUAL_BACKEND
++    // Preservation build: read existing service configuration only. No OTA,
++    // credential refresh, registration, challenge, or server-side mutations.
++    current_version_ = esp_app_get_description()->version;
++    has_new_version_ = has_activation_challenge_ = requires_app_binding_ = false;
++    Settings saved_mqtt("mqtt", false), saved_ws("websocket", false);
++    has_mqtt_config_ = !saved_mqtt.GetString("endpoint").empty() &&
++                       !saved_mqtt.GetString("client_id").empty();
++    has_websocket_config_ = !saved_ws.GetString("url").empty();
++    if (!has_mqtt_config_ && !has_websocket_config_) {
++        ESP_LOGE(TAG, "Original service configuration unavailable; no re-provisioning attempted");
++        return std::unexpected(NetworkError::InvalidArgument());
++    }
++    return {};
++#endif
++
+     auto& board = Board::GetInstance();
+     auto app_desc = esp_app_get_description();
+ 
+@@ -251,6 +269,10 @@
+ }
+ 
+ void Ota::MarkCurrentVersionValid() {
++#if CONFIG_SION_DUAL_BACKEND
++    return;  // Explicit trial confirmation owns this write.
++#endif
++
+     auto partition = esp_ota_get_running_partition();
+     if (strcmp(partition->label, "factory") == 0) {
+         ESP_LOGI(TAG, "Running from factory partition, skipping");
+@@ -271,6 +293,10 @@
+ }
+ 
+ bool Ota::Upgrade(const std::string& firmware_url, std::function<void(int progress, size_t speed)> callback) {
++#if CONFIG_SION_DUAL_BACKEND
++    return false;  // The next OTA partition is the original rescue application.
++#endif
++
+     ESP_LOGI(TAG, "Upgrading firmware from %s", firmware_url.c_str());
+     esp_ota_handle_t update_handle = 0;
+     auto update_partition = esp_ota_get_next_update_partition(NULL);
+@@ -495,6 +521,10 @@
+ }
+ 
+ esp_err_t Ota::Activate() {
++#if CONFIG_SION_DUAL_BACKEND
++    return ESP_ERR_NOT_SUPPORTED;  // Do not change the existing cloud identity.
++#endif
++
+     if (!has_activation_challenge_) {
+         ESP_LOGW(TAG, "No activation challenge found");
+         return ESP_FAIL;
+diff --git a/main/assets.cc b/main/assets.cc
+--- a/main/assets.cc
++++ b/main/assets.cc
+@@ -1,3 +1,5 @@
++#include <sdkconfig.h>
++
+ #include "assets.h"
+ #include "application.h"
+ #include "board.h"
+@@ -488,6 +490,11 @@
+ 
+ bool Assets::Download(std::string url,
+                       std::function<void(int progress, size_t speed)> progress_callback) {
++#if CONFIG_SION_DUAL_BACKEND
++    ESP_LOGW(TAG, "Shared original assets are read-only in preservation builds");
++    return false;
++#endif
++
+     ESP_LOGI(TAG, "Downloading new version of assets from %s", url.c_str());
+ 
+     auto network = Board::GetInstance().GetNetwork();
+diff --git a/main/application.cc b/main/application.cc
+--- a/main/application.cc
++++ b/main/application.cc
+@@ -1,3 +1,5 @@
++#include <sdkconfig.h>
++
+ #include "application.h"
+ #include <hal/hal.h>
+ #include "assets.h"
+@@ -403,6 +405,14 @@
+         return;
+     }
+ 
++#if CONFIG_SION_DUAL_BACKEND
++    // Use the original resources; leave a pending download URL untouched.
++    if (!assets.Apply())
++        ESP_LOGE(TAG, "Original assets could not be loaded; keep trial unconfirmed");
++    display->SetChatMessage("system", "");
++    display->SetEmotion("robot_2");
++    return;
++#endif
+     Settings settings("assets", true);
+     // Check if there is a new assets need to be downloaded
+     std::string download_url = settings.GetString("download_url");
+@@ -1267,6 +1277,11 @@
+ }
+ 
+ bool Application::UpgradeFirmware(const std::string& url, const std::string& version) {
++#if CONFIG_SION_DUAL_BACKEND
++    ESP_LOGW(TAG, "Firmware installation blocked: original rescue slot protected");
++    return false;
++#endif
++
+     if (sion_transition_ || sion::BackendRuntime::Get().Local())
+         return false;
+     auto& board = Board::GetInstance();
+diff --git a/main/settings.cc b/main/settings.cc
+--- a/main/settings.cc
++++ b/main/settings.cc
+@@ -1,3 +1,5 @@
++#include <sdkconfig.h>
++#include "sion/preservation_policy.h"
+ #include "settings.h"
+ 
+ #include <esp_log.h>
+@@ -6,6 +8,9 @@
+ #define TAG "Settings"
+ 
+ Settings::Settings(const std::string& ns, bool read_write) : ns_(ns), read_write_(read_write) {
++#if CONFIG_SION_DUAL_BACKEND
++    if (sion::ProtectedNamespace(ns)) read_write_ = false;
++#endif
+     nvs_open(ns.c_str(), read_write_ ? NVS_READWRITE : NVS_READONLY, &nvs_handle_);
+ }
+ 
+diff --git a/main/boards/common/system_reset.cc b/main/boards/common/system_reset.cc
+--- a/main/boards/common/system_reset.cc
++++ b/main/boards/common/system_reset.cc
+@@ -1,3 +1,5 @@
++#include <sdkconfig.h>
++
+ #include "system_reset.h"
+ 
+ #include <esp_log.h>
+@@ -37,6 +39,11 @@
+ }
+ 
+ void SystemReset::ResetNvsFlash() {
++#if CONFIG_SION_DUAL_BACKEND
++    ESP_LOGW(TAG, "Destructive reset disabled while preserving original firmware");
++    return;
++#endif
++
+     ESP_LOGI(TAG, "Resetting NVS flash");
+     esp_err_t ret = nvs_flash_erase();
+     if (ret != ESP_OK) {
+@@ -49,6 +56,11 @@
+ }
+ 
+ void SystemReset::ResetToFactory() {
++#if CONFIG_SION_DUAL_BACKEND
++    ESP_LOGW(TAG, "Destructive reset disabled while preserving original firmware");
++    return;
++#endif
++
+     ESP_LOGI(TAG, "Resetting to factory");
+     // Erase otadata partition
+     const esp_partition_t* partition = esp_partition_find_first(ESP_PARTITION_TYPE_DATA, ESP_PARTITION_SUBTYPE_DATA_OTA, NULL);

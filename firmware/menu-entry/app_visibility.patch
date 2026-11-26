@@ -1,0 +1,161 @@
+diff --git a/firmware/main/apps/app_setup/workers/feature_toggle.cpp b/firmware/main/apps/app_setup/workers/feature_toggle.cpp
+index 515bc60..999616e 100644
+--- a/firmware/main/apps/app_setup/workers/feature_toggle.cpp
++++ b/firmware/main/apps/app_setup/workers/feature_toggle.cpp
+@@ -80,7 +80,7 @@ void FeatureToggleWorker::load_preferences()
+ 
+ bool FeatureToggleWorker::save_preferences(const ToggleStates& desired)
+ {
+-    if (save_states(desired)) {
++    if (save_states(desired, _states)) {
+         _states = desired;
+         _status->setText(HELP);
+         refresh_rows();
+diff --git a/firmware/main/hal/hal_toggles.cpp b/firmware/main/hal/hal_toggles.cpp
+index 975130d..9c8da07 100644
+--- a/firmware/main/hal/hal_toggles.cpp
++++ b/firmware/main/hal/hal_toggles.cpp
+@@ -6,7 +6,21 @@
+ namespace hal_toggles {
+ namespace {
+ constexpr const char* TAG    = "AppVisibility";
+-constexpr uint8_t VALID_MASK = (1u << TOGGLE_COUNT) - 1;
++// Published firmware rejects any high bit in visible_mask.
++constexpr size_t STOCK_TOGGLE_COUNT = static_cast<size_t>(App::Dance) + 1;
++constexpr uint8_t VALID_MASK = (1u << STOCK_TOGGLE_COUNT) - 1;
++#if CONFIG_STACKCHAN_DSH_MENU
++constexpr size_t DSH_INDEX = static_cast<size_t>(App::DshAgent);
++#endif
++
++uint8_t stock_mask(const ToggleStates& states)
++{
++    uint8_t mask = 0;
++    for (size_t i = 0; i < STOCK_TOGGLE_COUNT; ++i) {
++        if (states[i]) mask |= 1u << i;
++    }
++    return mask;
++}
+ 
+ bool fail(esp_err_t error)
+ {
+@@ -31,11 +45,11 @@ bool load_states(ToggleStates& states)
+             nvs_close(handle);
+             return fail(ESP_ERR_INVALID_STATE);
+         }
+-        for (size_t i = 0; i < TOGGLE_COUNT; ++i) loaded[i] = (mask & (1u << i)) != 0;
++        for (size_t i = 0; i < STOCK_TOGGLE_COUNT; ++i) loaded[i] = (mask & (1u << i)) != 0;
+     } else if (error == ESP_ERR_NVS_NOT_FOUND) {
+         // Migrate the six original keys on the next successful save, without
+         // touching other settings or writing merely to open the launcher.
+-        for (size_t i = 0; i < TOGGLE_COUNT; ++i) {
++        for (size_t i = 0; i < STOCK_TOGGLE_COUNT; ++i) {
+             uint8_t value = 1;
+             error         = nvs_get_u8(handle, TOGGLE_LIST[i].key, &value);
+             if (error == ESP_ERR_NVS_NOT_FOUND) continue;
+@@ -49,24 +63,38 @@ bool load_states(ToggleStates& states)
+         nvs_close(handle);
+         return fail(error);
+     }
++#if CONFIG_STACKCHAN_DSH_MENU
++    uint8_t visible = 1;
++    error = nvs_get_u8(handle, TOGGLE_LIST[DSH_INDEX].key, &visible);
++    if (error == ESP_OK && visible <= 1) {
++        loaded[DSH_INDEX] = visible != 0;
++    } else if (error != ESP_ERR_NVS_NOT_FOUND) {
++        // An unavailable DSH preference must not reset the six factory toggles.
++        fail(error == ESP_OK ? ESP_ERR_INVALID_STATE : error);
++    }
++#endif
+     nvs_close(handle);
+     states = loaded;
+     return true;
+ }
+ 
+-bool save_states(const ToggleStates& states)
++bool save_states(const ToggleStates& states, [[maybe_unused]] const ToggleStates& previous)
+ {
+     nvs_handle_t handle;
+     auto error = nvs_open(NVS_NAMESPACE, NVS_READWRITE, &handle);
+     if (error != ESP_OK) return fail(error);
+ 
+-    uint8_t mask = 0;
+-    for (size_t i = 0; i < TOGGLE_COUNT; ++i) {
+-        if (states[i]) mask |= 1u << i;
++    const uint8_t mask = stock_mask(states);
++#if CONFIG_STACKCHAN_DSH_MENU
++    // Toggling only DSH leaves even pre-mask factory preferences untouched.
++    if (mask != stock_mask(previous)) error = nvs_set_u8(handle, MASK_KEY, mask);
++    if (error == ESP_OK && states[DSH_INDEX] != previous[DSH_INDEX]) {
++        error = nvs_set_u8(handle, TOGGLE_LIST[DSH_INDEX].key, states[DSH_INDEX]);
+     }
+-    // One value stores the complete selection, including Reset. Do not leave
+-    // six independently updated keys after a partially failed reset.
++#else
++    // Keep the six factory toggles in one value, including Reset.
+     error = nvs_set_u8(handle, MASK_KEY, mask);
++#endif
+     if (error == ESP_OK) error = nvs_commit(handle);
+     nvs_close(handle);
+     return error == ESP_OK ? true : fail(error);
+diff --git a/firmware/main/hal/hal_toggles.h b/firmware/main/hal/hal_toggles.h
+index 235b41f..e9adc34 100644
+--- a/firmware/main/hal/hal_toggles.h
++++ b/firmware/main/hal/hal_toggles.h
+@@ -1,5 +1,6 @@
+ // Adapted from ThisIsBenny's StackChan PR #31.
+ #pragma once
++#include "sdkconfig.h"
+ #include <array>
+ #include <cstddef>
+ #include <cstdint>
+@@ -9,7 +10,13 @@ namespace hal_toggles {
+ inline constexpr const char* NVS_NAMESPACE = "feature_toggles";
+ inline constexpr const char* MASK_KEY      = "visible_mask";
+ 
+-enum class App { AiAgent, Avatar, EspnowRemote, AppCenter, Ezdata, Dance, Count };
++enum class App {
++    AiAgent, Avatar, EspnowRemote, AppCenter, Ezdata, Dance,
++#if CONFIG_STACKCHAN_DSH_MENU
++    DshAgent,
++#endif
++    Count,
++};
+ inline constexpr size_t TOGGLE_COUNT = static_cast<size_t>(App::Count);
+ using ToggleStates                   = std::array<bool, TOGGLE_COUNT>;
+ 
+@@ -26,16 +33,25 @@ inline constexpr std::array<ToggleInfo, TOGGLE_COUNT> TOGGLE_LIST = {{
+     {"app_center", "APP.CENTER"},
+     {"ezdata", "EZDATA"},
+     {"dance", "DANCE"},
++#if CONFIG_STACKCHAN_DSH_MENU
++    {"dsh_visible", "DSH.AGENT"},
++#endif
+ }};
+ 
+ inline constexpr ToggleStates default_states()
+ {
+-    return {true, true, true, true, true, true};
++    ToggleStates states{};
++    states.fill(true);
++    return states;
+ }
+ 
+ // Associate persistent feature keys with actual Mooncake IDs at installation.
+ // Neither translated display names nor filtered menu positions identify an app.
+-inline std::array<int, TOGGLE_COUNT> registered_app_ids = {-1, -1, -1, -1, -1, -1};
++inline std::array<int, TOGGLE_COUNT> registered_app_ids = [] {
++    std::array<int, TOGGLE_COUNT> ids{};
++    ids.fill(-1);
++    return ids;
++}();
+ inline void register_app_id(App app, int app_id)
+ {
+     const auto index = static_cast<size_t>(app);
+@@ -53,6 +69,6 @@ inline bool is_app_enabled(int app_id, const ToggleStates& states)
+ 
+ // Load failures leave safe defaults. Saving never initializes or erases NVS.
+ bool load_states(ToggleStates& states);
+-bool save_states(const ToggleStates& states);
++bool save_states(const ToggleStates& states, const ToggleStates& previous);
+ 
+ }  // namespace hal_toggles

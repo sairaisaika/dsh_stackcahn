@@ -1,0 +1,38 @@
+stateDiagram-v2
+    direction TB
+    [*] --> Idle: 有效 lease_ms / drain_ms
+    [*] --> Fault: 非法超时配置
+    Idle --> Connecting: 显式 Start / Begin / epoch 增加
+    Connecting --> Active: Connected / 同 epoch 且租约有效
+    Active --> Active: Renew / 同 epoch 且未过期
+    Connecting --> Draining: Stop / Home / 同 epoch 断线 / 到期
+    Active --> Draining: Stop / Home / 同 epoch 断线 / 到期
+    Idle --> Draining: Home / home_requested=true
+    Draining --> Draining: 资源 Pending；Home 可设置返回意图
+    Draining --> Idle: Done 且未请求 Home
+    Draining --> Returning: Done 且请求 Home
+    Draining --> Fault: 关闭失败或 drain 超时
+    Returning --> Returning: ReturnHome Pending
+    Returning --> Home: ReturnHome Done
+    Returning --> Fault: ReturnHome 失败或超时
+    Home --> Idle: Reopen / 保持 epoch 单调
+    Fault --> Draining: Stop 或 Home 重试 / epoch 尚可增加
+    note right of Idle
+        V6：实际 SessionLifecycle 投影
+        Idle/Home 的 Stop 不做操作
+        认证 hello 留在 Idle；Start 才开始新租约
+    end note
+    note right of Active
+        旧 epoch 的 Connected/Renew/Disconnected 不推进状态
+        设备按本地时钟检验租约
+        默认 15000 ms 为配置值
+    end note
+    note right of Draining
+        旧代次输入与待播帧失效
+        等待各资源释放才接受新连接
+    end note
+    note right of Fault
+        epoch 耗尽也进入 Fault；不能继续 Fence
+        drain_ms=20000 为每段配置期限
+        Home 意图会在失败后保留到 Reopen
+    end note

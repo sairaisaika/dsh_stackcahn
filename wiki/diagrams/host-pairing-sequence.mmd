@@ -1,0 +1,41 @@
+sequenceDiagram
+    autonumber
+    participant H as Host 内部调用方
+    participant P as PairingHost 子进程管理
+    participant J as Python Journal
+    participant F as Mac 私有文件
+    participant U as SIONA1 USB 客户端
+    Note over H,U: V11 · Host 事务子路径；上层 Remote 见 V12；未打开真机串口
+    H->>P: prepare(revision, deviceId, localUrl)
+    P->>J: 固定 helper；有界 stdin JSON
+    J->>F: flock；校验 revision、身份与无 pending
+    J->>F: 生成并同步不可变证书 bundle
+    J->>F: 原子保存 candidate；revision 加一
+    J-->>P: 脱敏快照
+    P-->>H: candidatePairId；不返回私钥或路径
+    H->>P: install / remove（显式操作）
+    P->>J: 新 helper，重新取得 flock
+    J->>F: 先保存 pending：previous / target
+    J->>U: perform 一次；设备再次校验身份与物理窗口
+    alt 回复及最终 Host 保存都确认
+        U-->>J: 正确设备、最终身份与状态
+        J->>F: 保存 active；清 pending；revision 加一
+        J-->>P: 已确认存储身份；connected 仍 false
+        P-->>H: 校验后返回脱敏快照
+    else 回复丢失 / 取消 / 最终保存失败
+        Note over J,F: 保留旧身份、候选和提交意图；不重放
+        Note over P,J: helper 报错或退出，Host 不重放
+        P-->>H: 结果未确认
+        H->>P: 重启后 snapshot，再显式 inspect
+        P->>J: 新 helper 读取持久化 pending
+        J->>U: status；只读查询实际身份
+        U-->>J: 当前身份 / busy / 故障
+        alt 已为目标身份
+            J->>F: 完成 active 更新，清 pending
+        else 仍为旧身份
+            J->>F: 清 pending，保留候选供用户重新授权
+        else 陌生身份 / busy / 故障
+            Note over J,F: 不确认完成；保留待核对状态
+        end
+    end
+    Note over H,F: 原厂语音、手机绑定与 DSH 会话不参与此事务

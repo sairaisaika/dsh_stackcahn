@@ -1,0 +1,20 @@
+sequenceDiagram
+    actor Owner as DSH 所有者
+    participant Host as Mac 与已选 DSH
+    participant Device as Sion DSH.AGENT
+    Owner->>Host: 开启 USB 待命
+    Host->>Host: 核对配对设备并打开串口
+    Host->>Device: SIONU0 探测
+    Note over Host,Device: 未点 USB 时保持等待，麦克风关闭
+    Owner->>Device: 在 Sion 点 USB
+    Host->>Device: 下一次探测
+    Device-->>Host: 回复本次就绪
+    Host->>Device: SIONU1 后开始配对 TLS
+    Device-->>Host: 空闲 hello
+    Host->>Device: 已有会话和本地语音就绪后发送 Start
+    alt 说「停止」且设备确认资源已释放
+        Host->>Device: 关闭 TLS
+        Host->>Host: 回收旧串口，继续等待设备触屏
+    else 拔线或 Mac 撤销待命
+        Host->>Host: 退出待命并释放串口
+    end

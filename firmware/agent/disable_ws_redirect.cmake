@@ -1,0 +1,23 @@
+# The pinned SDK follows redirects with the original custom Authorization header.
+# Compile a checked copy for this image only. Do not edit the resolved component
+# on disk or change the original firmware/upstream checkout.
+idf_component_get_property(agent_ws_library espressif__esp_websocket_client COMPONENT_LIB)
+idf_component_get_property(agent_ws_dir espressif__esp_websocket_client COMPONENT_DIR)
+get_target_property(agent_ws_sources ${agent_ws_library} SOURCES)
+list(REMOVE_ITEM agent_ws_sources "${agent_ws_dir}/esp_websocket_client.c")
+if(agent_ws_sources)
+    message(FATAL_ERROR "Pinned WebSocket client source list changed")
+endif()
+set(agent_ws_original "${agent_ws_dir}/esp_websocket_client.c")
+set(agent_ws_patched "${CMAKE_CURRENT_BINARY_DIR}/agent_websocket_client.c")
+set_property(DIRECTORY APPEND PROPERTY CMAKE_CONFIGURE_DEPENDS "${agent_ws_original}")
+file(READ "${agent_ws_original}" agent_ws_text)
+set(agent_ws_check "if (result < 0) {\n                esp_tls_error_handle_t error_handle = esp_transport_get_error_handle(client->transport);")
+set(agent_ws_guard "if (result < 0 || WS_HTTP_REDIRECT(result)) {\n                esp_tls_error_handle_t error_handle = esp_transport_get_error_handle(client->transport);")
+string(FIND "${agent_ws_text}" "${agent_ws_check}" agent_ws_match)
+if(agent_ws_match EQUAL -1)
+    message(FATAL_ERROR "Pinned WebSocket upgrade error path changed")
+endif()
+string(REPLACE "${agent_ws_check}" "${agent_ws_guard}" agent_ws_text "${agent_ws_text}")
+file(WRITE "${agent_ws_patched}" "${agent_ws_text}")
+set_property(TARGET ${agent_ws_library} PROPERTY SOURCES "${agent_ws_patched}")

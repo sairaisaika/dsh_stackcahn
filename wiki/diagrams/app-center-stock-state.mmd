@@ -1,0 +1,32 @@
+stateDiagram-v2
+    direction LR
+    state "原厂 v1.6.2 · VALID" as Factory
+    state "独立镜像已暂存" as Staged
+    state "DSH 槽 · NEW" as Selected
+    state "DSH 槽 · PENDING_VERIFY" as Agent {
+        direction TB
+        state Preflight <<choice>>
+        state Storage <<choice>>
+        state "对话空闲" as Idle
+        state "对话中" as Conversation
+        state "退出初始化" as Refused
+        [*] --> Preflight: 校验原厂槽
+        Preflight --> Storage: 原厂镜像核对通过
+        Preflight --> Refused: 核对失败
+        Storage --> Idle: 归属确认后使用独立设置
+        Storage --> Idle: 归属不完整时保留尾部，设置不可用
+        Idle --> Conversation: 认证并接通所选会话
+        Conversation --> Idle: Stop 后释放本次资源
+    }
+    state "DSH 槽 · ABORTED" as Returned
+    [*] --> Factory
+    Factory --> Factory: 镜像暂存中断
+    Factory --> Staged: 写入非活跃应用槽
+    Staged --> Factory: 尚未选择或选择记录缺 CRC
+    Staged --> Selected: 官方 OTA 选择本次应用
+    Selected --> Agent: 原版启动器选择 DSH
+    Agent --> Returned: Home 释放资源后退出，或启动中断
+    Returned --> Factory: 装载已确认的原厂镜像
+    note right of Factory
+        返回界面沿用原厂开机设置。
+    end note

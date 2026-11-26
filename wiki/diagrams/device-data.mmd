@@ -1,0 +1,40 @@
+classDiagram
+    class DedicatedNvs {
+      label sion_cfg
+      size 16384_bytes
+      installation reviewed_tail_layout
+    }
+    class PreferencesRecord {
+      namespace settings
+      key preferences
+      uint8 write_v4_read_v1_to_v4
+      uint8 volume_0_to_100
+      uint8 mute_mic_camera_motion_ring_flags
+      uint8 reserved_zero
+      uint32_LE revision
+      uint32_LE crc32_of_first_8_bytes
+      total 12_bytes
+    }
+    class PairingSlots {
+      namespace pairing
+      uint8 active_0_or_1
+      blob slot0_max_4096_bytes
+      blob slot1_max_4096_bytes
+    }
+    class DeviceIdentity {
+      JSON version_1_and_role_sion_device
+      hex32 pair_id
+      hex64 control_key
+      hex64 local_token_distinct
+      URL local_wss_private_IPv4
+      PEM ca_and_cert_and_key
+    }
+    class Revocation {
+      JSON empty_object_tombstone
+      behavior never_fallback_to_old_slot
+    }
+    DedicatedNvs *-- PreferencesRecord : 独立 namespace
+    DedicatedNvs *-- PairingSlots : 独立 namespace
+    PairingSlots --> DeviceIdentity : active 指向有效身份
+    PairingSlots --> Revocation : 或指向撤销记录
+    note for DedicatedNvs "V9：序列化模型，不是 C++ ABI 或数据库 ORM；原厂 NVS 不在这里"

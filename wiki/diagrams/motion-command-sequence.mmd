@@ -1,0 +1,32 @@
+sequenceDiagram
+    autonumber
+    participant U as Sion Settings
+    participant D as 选定 DSH 会话
+    participant H as VoiceRuntime / AgentConnection
+    participant A as 设备 AgentSession
+    participant E as MotionEngine / worker
+    U->>E: MO3 AllowMotion，默认关闭
+    A-->>H: hello motion:1，当前 boot 和 epoch
+    D->>H: MO7 stackchan_move_head
+    H->>H: 核对活跃会话、配置、连接
+    H->>A: MO4 move_head，boot / epoch / request
+    alt 许可关闭、参数越界或已有动作
+        A-->>H: motion_result 拒绝
+    else 当前租约与本地许可均有效
+        A->>E: Begin 返回内部票据
+        E->>E: V41 准备、动作、反馈、实际释放
+        opt DSH 工具取消或设备撤销许可
+            H->>A: cancel_move（工具取消路径）
+            A->>E: Cancel（本地许可撤销也使票据失效）
+        end
+        alt DSH Stop、Home、失联或租约到期
+            A->>E: MO5 生命周期 fence，等待释放
+            Note over H,E: 旧动作结果作废；Stop 需整组资源确认
+        else 请求仍属当前租约
+            E-->>A: MO6 Take / 取消结束 / 释放故障
+            A-->>H: motion_result，成功带释放前实测位置
+            H-->>D: 再核对会话和代次后返回
+        end
+    end
+    A-->>H: MO8 可选 motion_state，变化或每 2 秒
+    Note over D,H: 设置页读 Remote 快照；跨代次或逾 6 秒显示未知

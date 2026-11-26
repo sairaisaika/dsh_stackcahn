@@ -1,0 +1,31 @@
+classDiagram
+    direction TB
+    class DeviceCapabilityReport {
+        version 1
+        voicePhase VoicePhase
+        features Record~CapabilityId,FeatureStatus~
+        conversation? ConversationStatus
+        notExposed UnexposedId[]
+    }
+    class FixedFeatureMap {
+        audio FeatureStatus
+        playbackFence FeatureStatus
+        expression FeatureStatus
+        camera FeatureStatus
+        motion FeatureStatus
+        ring FeatureStatus
+    }
+    class FeatureStatus {
+        availability Availability
+        version? 1
+        permission Permission
+        condition CapabilityCondition
+    }
+    class ConversationStatus {
+        replyMode inactive / spoken / caption-only
+        captionChannel unknown / requested / not-requested
+    }
+    DeviceCapabilityReport *-- "0..1" ConversationStatus : 当前对话与认证连接
+    DeviceCapabilityReport *-- "1" FixedFeatureMap : features
+    FixedFeatureMap *-- "6" FeatureStatus : 每项同一结构
+    note for DeviceCapabilityReport "V48 · Host 即时投影。输出无会话 ID、设备标识或音频。"

@@ -1,0 +1,20 @@
+flowchart TB
+    subgraph HOST["Mac · 软件已在隔离环境验证"]
+      direction TB
+      CLIENT["DSH Client<br/>StackChan 设置页"]
+      DSH["DSH Host 进程<br/>StackChan 插件和选定会话控制器"]
+      VOICE["本地语音子进程<br/>AEC、ASR、TTS"]
+      PRIVATE["私有 profile 内身份与语音模型<br/>不进入公开仓库"]
+      CLIENT -->|"owner Remote"| DSH
+      DSH -->|"子进程与本地协议"| VOICE
+      PRIVATE -->|"身份租约与模型文件"| DSH
+    end
+    subgraph SION["Sion · ESP32-S3"]
+      direction TB
+      FACTORY["原厂 v1.6.2<br/>本次只读预检后正常复位"]
+      AGENT["独立 v26 应用<br/>构建及 QEMU 加载已验证；未装真机"]
+      CFG["候选 sion_cfg 专用分区<br/>16 KiB；独立于原厂 NVS"]
+      AGENT -. "独立设置和配对" .-> CFG
+      AGENT -. "显式确认原厂返回<br/>释放资源后软复位" .-> FACTORY
+    end
+    DSH -. "局域网 WSS + PCM<br/>本地传输已测；真实无线待验收" .-> AGENT

@@ -1,0 +1,26 @@
+sequenceDiagram
+    participant Client as 公开 App Center
+    participant SDK as ESP-IDF OTA writer
+    participant A as 非活跃 A 槽与记录
+    participant Boot as 原版启动器
+    participant B as 已确认原厂 B 槽
+    Client->>SDK: OW1 默认顺序擦写
+    Note over Client,SDK: QEMU 从 SDK writer 开始运行
+    SDK->>A: OW2 开始时先擦 A 的 OTA 记录
+    loop 接收镜像字节
+        SDK->>A: OW3 擦除所触及的扇区，再写入
+    end
+    alt 中断或镜像校验失败
+        SDK-->>Client: OW4 A 未获得新启动记录
+        Boot->>B: 下次仍启动已确认原厂
+    else 镜像完整且校验通过
+        SDK->>A: OW5 写 NEW 启动记录
+        Boot->>A: 首次启动，推进到 PENDING_VERIFY
+        Boot->>B: OW6 尚未确认的 A 再重启时回原厂
+    end
+    opt 再次装载同一应用
+        Client->>SDK: OW7 重新下载完整镜像
+        SDK->>A: 重新通过校验并选择 A
+        Boot->>A: 再次进入 DSH
+        Note over A,B: 独立区归属记录继续有效
+    end

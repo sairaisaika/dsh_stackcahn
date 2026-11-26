@@ -1,0 +1,28 @@
+stateDiagram-v2
+    direction TB
+    [*] --> Idle
+    Idle --> Opening: 合法 Begin；allowed / epoch / 无结果槽占用
+    Opening --> Commanding: Open 成功
+    Opening --> Releasing: Open 失败 / 取消 / 超时
+    Commanding --> Moving: Move 接受
+    Commanding --> Releasing: 下发失败 / 取消 / 超时
+    Moving --> Moving: Pending / 未到位；清连续样本
+    Moving --> Releasing: 两次到位 / 错误 / 堵转 / 取消 / 超时
+    Releasing --> Releasing: Release Pending
+    Releasing --> Fault: Release Failed
+    Fault --> Releasing: 显式 Stop / 匹配 Cancel / 关闭许可
+    Releasing --> Idle: Release Done；符合身份才发布单次结果
+    note right of Idle
+      V37 · 核心状态，生产消费者待接
+      有待取结果时拒绝 Begin
+      Take / Stop / 禁用可清结果
+    end note
+    note right of Releasing
+      不提前报告物理停止
+      fence 作废旧结果
+      实际 I/O 未退出则保持等待
+    end note
+    note right of Fault
+      不自动重试，不接受新动作
+      不是回到原厂助手
+    end note

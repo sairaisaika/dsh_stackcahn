@@ -1,0 +1,78 @@
+{
+  "date": "2026-11-18",
+  "officialFirmwareBase": "1.6.2",
+  "revision": "preservation-trial-v3",
+  "result": "build-passed-not-flashed",
+  "sourceLock": "upstream.lock.json",
+  "featureEnabled": true,
+  "artifactRoot": "work/artifacts/sion-preservation",
+  "imageValidationSha256": "82de0b3bd3415f281871bb34599751867e4200adc8c5d3e1690b34c555d914ad",
+  "artifacts": [
+    {
+      "path": "build/stack-chan.bin",
+      "bytes": 3801600,
+      "sha256": "84614080e241d4b5b192acd83fd3a321f766fe47b52d9018ee36ed9916fc1b99"
+    },
+    {
+      "path": "build/bootloader/bootloader.bin",
+      "bytes": 24208,
+      "sha256": "83ab545b944b6f5a6038d4e568c2b7dba32af20f6171e18d3cc80448a8ae7f0d"
+    },
+    {
+      "path": "build/partition_table/partition-table.bin",
+      "bytes": 3072,
+      "sha256": "48da0866f56d9d8eb1fe786412984d8f1a4a01b3f13f965621fcb916761e1a4b"
+    },
+    {
+      "path": "build/ota_data_initial.bin",
+      "bytes": 8192,
+      "sha256": "7d2c7ac4888bfd75cd5f56e8d61f69595121183afc81556c876732fd3782c62f"
+    },
+    {
+      "path": "build/generated_assets.bin",
+      "bytes": 2371294,
+      "sha256": "aafda94173c5060c8eabc7993282ef4812bd0185c4e5aa4f7e4645117b9a7646"
+    },
+    {
+      "path": "build/flasher_args.json",
+      "bytes": 1196,
+      "sha256": "2210985b6da335f3a7cd21e8a93f67478ffbfed8d3764335404f3c5bc0581ec3"
+    },
+    {
+      "path": "build/sion-pairing-sdkconfig",
+      "bytes": 153333,
+      "sha256": "0ed894d01960609e2c4a6929f973f6958737a42d80afe82336021deb330303b6"
+    },
+    {
+      "path": "dependencies.lock",
+      "bytes": 29208,
+      "sha256": "636d39a630994317d1c72e337ba3626f8e2a2daf721a453039cf2bf5ad5248b0"
+    }
+  ],
+  "sourceSha256": {
+    "firmware/patches/stackchan-dual-backend.patch": "9b93eeef15393e7aebe3f31cf19d615adac5f57c1eb5c5f3bd9600287268b84b",
+    "firmware/patches/stackchan-preservation.patch": "c5c8aaea8d140280c60832cf2544e48c409b1d1f0a50205a10e20476034f9a23",
+    "firmware/patches/xiaozhi-dual-backend.patch": "7e6a7731f9a20b64da6d31dc3808adae04abea1acdcfa84fe23d8a8a202a77e7",
+    "firmware/patches/xiaozhi-preservation.patch": "7297c2a2650b289b7d68fbba90c5c57e56c9577203e7b06a828b8701251badbc",
+    "firmware/overlay/sion/backend_runtime.cc": "b4135b56d5a2d78cd189fd88da4c1b0186f9610266160f37160fc59cfc734997",
+    "firmware/overlay/sion/backend_runtime.h": "f92d96d833f8b059611a96baa847d99eb3a378e5634d56bcefbb368f2eff0b8d",
+    "firmware/overlay/sion/endpoint_policy.h": "c068c50d142fa10e65e0bff98bb37937902321042520cb38d65f5635f6835fa5",
+    "firmware/overlay/sion/firmware_trial.cc": "c9a73ff92a29eb256705e1c785ddaf280020f5087dcbdf143cc98eceb2cb1624",
+    "firmware/overlay/sion/firmware_trial.h": "6a81261e55660db97ad8c2cce835e1d02cad9a29eec4a3e7a50e14a662b70aa7",
+    "firmware/overlay/sion/mode_controller.h": "eff586431b4bfc0cf28b20368b8c13288b7bbc01bf578866c462673d9185bfda",
+    "firmware/overlay/sion/paired_network.h": "eba777f9549c16519be38858b6bfc766b0da4150828f1f3d93fff171327380c5",
+    "firmware/overlay/sion/paired_tls.cc": "3281ca138300a34977d1e4ad937880e1e591799c271652ff4393ae30446882b9",
+    "firmware/overlay/sion/paired_tls.h": "ecd53be70af9019ced74fc3b3a08fd6e45979668da270ec153a4103a54646abb",
+    "firmware/overlay/sion/pairing_config.h": "08e9ca59c6b6c115f72b54ca874dcb8c91e639afe7c12a401bcf16d474a2c1f1",
+    "firmware/overlay/sion/pairing_store.cc": "b98b151c13a08531cb63558df6d4d2aaa9686047b488829363e03440a101e813",
+    "firmware/overlay/sion/pairing_store.h": "4bb72f30d6e676080f4ad9f163ce967b049333c5a029c61120027aa652338517",
+    "firmware/overlay/sion/pairing_usb.cc": "c16b3f4044e4878f03e92d5d93d7a133af0e2e10630a4a9ff9b7c1a0099b793c",
+    "firmware/overlay/sion/pairing_usb.h": "07667a3a750d5059b15d0f0ce99dabdde052e6d60f7dd91817118577e46d221f",
+    "firmware/overlay/sion/preservation_policy.h": "ff5643e0a0dac55ba96f067c439b47123d5280e4c9ba8d2b64c9553b66ad21ad",
+    "firmware/overlay/sion/preservation_storage.cc": "6211c09857b1aad94133cc69cdb701d7d1bde6f97fb47edc0c4314f238dca89c",
+    "firmware/feature.defaults": "20c98828a76928f46d158bf671d461d07d6e6ddf9c9269d0ec189866c7466b2e"
+  },
+  "hardwareTested": false,
+  "installable": false,
+  "authentication": "upstream issue 134 confirms production integration is not available in public builds"
+}

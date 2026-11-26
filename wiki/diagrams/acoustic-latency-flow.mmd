@@ -1,0 +1,12 @@
+flowchart LR
+    subgraph Capture["同一台录音设备 · 一条时间轴"]
+        U["用户说完<br/>问题或「停止」"] --> W["本地音频轨"]
+        S["Sion 扬声器<br/>首次出声或停止播报"] --> W
+    end
+    W --> A["听录音并标记区间<br/>reply / stop / timeout / unclear"]
+    A --> L["Audacity 导出标签<br/>按 USB / 同网 / 中继分别保存"]
+    L --> B["voice_latency.py<br/>校验区间和统计失败"]
+    B --> R["A5 验收报告<br/>尝试数、成功数、p50、p95"]
+    T["Mac 单调计时<br/>ASR / DSH / TTS / ACK"] --> H["DSH Host 日志<br/>按需记录毫秒和链路"]
+    T --> V["最近一轮 · 运行内存"]
+    V --> UIV["DSH 设置<br/>按 owner 权限读取"]

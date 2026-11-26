@@ -1,0 +1,71 @@
+sequenceDiagram
+    autonumber
+    actor U as 用户
+    participant C as 设置页 / Remote
+    participant R as VoiceRuntime
+    participant I as VoiceInstallation
+    participant T as 本机基础工具
+    participant P as Python 安装 helper
+    participant E as VoiceEnvironment
+    participant F as profile 私有目录
+    Note over C,F: V26 · 安装与设备启动分离；用户 profile / 真机未验收
+    opt 用户先检查安装条件
+      U->>C: 检查安装条件
+      C->>R: L37 check-installation；owner 检查
+      R->>I: L38 inspectPrerequisites；stopped / 单操作
+      I->>I: 平台检查；清空旧条件报告
+      opt darwin / arm64
+        I->>T: L47 Python 3.11 / 架构；xcode-select -p
+        T-->>I: 固定查询结果
+        opt 已选择开发工具目录
+          I->>T: xcrun --find clang / make / git
+          T-->>I: 可发现或缺失
+        end
+      end
+      alt 检查完成
+        I-->>R: 分类状态 / checkedAt；不改变 active
+        R-->>C: L45 条件报告；缺失时显示安装指引
+      else 取消
+        R->>I: Abort；等待探测退出
+        I-->>R: 已取消；不保留旧条件报告
+        R-->>C: 刷新状态；不继续安装
+      end
+    end
+    U->>C: 准备或显式修复
+    C->>R: L37 owner 校验后的 prepare / repair
+    R->>R: stopped 且无操作；拒绝自定义路径覆盖
+    R->>I: L38 prepare(replace, signal)
+    I->>P: L39 固定脚本 / 私有 root；进程组
+    P->>F: L41 flock；检查 v3 指针；新 generation 或复用
+    opt 新建候选
+      P->>P: L40 固定依赖和资产 / TLS / hash / 原生构建
+      P->>F: L41 候选文件与构建收据；尚未发布
+    end
+    loop 构建期间，只读刷新可与安装并行
+      C->>R: snapshot
+      R-->>C: L45 固定阶段 / busy / 上次 available
+    end
+    P-->>I: candidate(generation)，继续持锁等 commit
+    I->>F: 校验 generation / 收据 / 程序 hash
+    I->>E: L42 校验并加载 v1.2 AEC；合成及同一 worker 中英识别
+    E-->>I: 文件验证与 loadTest / 清理结果
+    alt 成功且未取消
+      I->>P: commit
+      P->>F: L43 原子发布 v3 指针；保留 v2 worker、v1 CLI 指针
+      P-->>I: done；解锁并退出
+      I->>F: L44 重读实际发布结果
+      I-->>R: ready；不启动设备或 listener
+      R-->>C: 返回实际安装状态
+    else 失败或取消
+      I->>P: 进程组 TERM；必要时 KILL；等待退出
+      I->>E: 取消并等待模型进程清理
+      I-->>R: 固定失败；发布事实须复查
+      R-->>C: 已失败 / 可复查；不宣称设备就绪
+    end
+    Note over I,F: commit 后取消或回复丢失可能已发布；以重读 active 为准，不自动重放
+    U->>C: 之后显式启动服务
+    C->>R: start
+    R->>I: L44 按顺序读取 v3、v2 worker、v1 CLI
+    R->>E: inspect(本次冻结路径)
+    E-->>R: 基础环境检查结果
+    R->>R: 通过后才取身份 / 监听；路径保持到关闭

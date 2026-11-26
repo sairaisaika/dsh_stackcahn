@@ -1,0 +1,42 @@
+sequenceDiagram
+    autonumber
+    participant M as DeepSeek Messages
+    participant P as DSH 会话 / 工具权限
+    participant T as 拍照工具
+    participant R as VoiceRuntime
+    participant C as 认证设备连接
+    participant A as 解码器 / 原附件服务
+    Note over M,A: V34 · 已用正式 Messages 适配器和本机夹具验证；真机与云端推理待验收
+    M->>P: tool_use 请求拍照
+    P->>T: 允许后执行，无参数，原 agent / signal
+    T->>R: photograph(agent, signal)
+    R->>R: 活动会话、冻结偏好、附件服务、排他检查
+    R->>C: captureCamera(signal)
+    Note over R,C: 许可 / 分块 / 最终回执见 V33；失败不进入解码
+    C-->>R: 有界 JPEG 与声明尺寸
+    R->>R: 再验取消、连接和操作代次
+    R->>A: saveCameraAttachment + assertCurrent
+    A->>A: JPEG 头部 / 尺寸 / 单帧 + 完整 raw 解码
+    alt 解码失败或资格已失效
+        A-->>R: 拒绝，不开始保存
+        R-->>T: 固定失败；不自动重拍
+    else 有效图片且仍有资格
+        A->>A: 原 AttachmentStore.saveImage
+        Note over R,A: 保存失败返回固定错误；保存不支持取消，Stop / 重连使返回资格失效
+        A->>A: 保存完成后 assertCurrent
+        alt 已停止、换 epoch、配置或提供者
+            A-->>R: 拒绝旧结果；已保存对象可能保留
+            R-->>T: 不发布引用，不删除共享 digest
+        else 仍为原请求环境
+            A-->>R: durable ImageAttachmentRef
+            R->>R: 最后检查，再释放排他
+            R-->>T: version + attachment
+            T-->>P: render 为 image content block，留在原会话
+            alt 视觉模型
+                P->>M: 对应的 tool_result，包含图片输入
+            else 文字模型
+                P->>M: 对应的 tool_result，说明图片已省略
+            end
+        end
+    end
+    Note over P,A: 成功交付后的图片不能通过随后 Stop 撤回；照片归 DSH 保留策略

@@ -1,0 +1,28 @@
+{
+  "deviceAccess": false,
+  "flashAuthorized": false,
+  "imageSha256": "d948571e20dd451b48ad8d395c61c5e0b2bbe202ea02015b8c8ad27afdd5a35b",
+  "installSpans": [
+    [
+      "0x20000",
+      "0x33f000"
+    ],
+    [
+      "0xd000",
+      "0xe000"
+    ]
+  ],
+  "restoreSpans": [
+    [
+      "0xd000",
+      "0xe000"
+    ],
+    [
+      "0x20000",
+      "0x33f000"
+    ]
+  ],
+  "entireSavedFlashRestored": true,
+  "savedBindingRegionMatched": true,
+  "traceSchema": 2
+}

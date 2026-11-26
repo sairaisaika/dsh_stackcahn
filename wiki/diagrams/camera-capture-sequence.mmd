@@ -1,0 +1,47 @@
+sequenceDiagram
+    autonumber
+    participant U as DevicePreferences / DeviceEffects
+    participant C as AgentSession / CameraTransfer
+    participant E as CameraEngine
+    participant W as 唯一 ESP Camera worker
+    participant P as EspCameraPort
+    Note over C,P: V31 · worker/设备许可已构建；请求/传输已接并经 TLS 测试，DSH 图片工具待接
+    U->>E: 设备设置 AllowCapture(true)
+    Note over U,E: 只改变许可，不启动采集
+    C->>E: 认证 Active 请求 Begin(epoch, now)
+    E-->>C: 本地 ticket / 拒绝
+    W->>E: Pump(now)
+    E->>P: Open（不持有控制 mutex）
+    P-->>E: 成功 / 失败；失败也需 Close
+    alt Open 失败或期间停止
+        Note over E,P: 跳过 Read，后续 Pump 关闭部分资源
+    else Open 成功且本轮有效
+    W->>E: Pump(now)
+    E->>P: Read(有界缓冲, capacity)
+    alt 取帧期间停止或禁用
+        U->>E: Stop(fence) / AllowCapture(false)
+        E->>E: Stop 作废 epoch；禁用仅作废 ticket；保留正在读的缓冲
+        Note over C,E: 会话停止轮询 Stopped(fence)；许可界面读取 phase
+        P-->>E: 旧结果返回
+        E->>E: 丢弃旧结果，不发布
+    else 正常取帧
+        P-->>E: Pending / Done / Failed
+        E->>E: 检查截止、尺寸和 JPEG 标记
+        Note over E,P: Pending 后续 Pump 再读；超时进入 Closing
+    end
+    end
+    W->>E: Pump(now)：Closing
+    E->>P: Close（不持有控制 mutex）
+    P-->>E: 真实关闭结果
+    alt 关闭失败
+        E->>E: Fault，保留端口所有权
+        Note over C,E: 不发布图片；ESP 适配器锁定不确定清理失败，重试仍失败
+    else 本轮已被停止或禁用
+        E->>E: Idle；释放缓冲
+        Note over C,E: 相机 Idle；会话停止还须汇总音频、网络、维护结果
+    else 本轮仍有效
+        E->>E: Idle；保留一份结果
+        C->>E: Take(epoch, ticket)
+        E-->>C: JPEG 或明确错误
+        Note over C,E: 分块/最终确认见 V33；附件规范化待接
+    end

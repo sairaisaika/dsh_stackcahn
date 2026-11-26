@@ -1,0 +1,40 @@
+sequenceDiagram
+    autonumber
+    participant W as ESP worker / main 分发
+    participant S as AgentSession 应用所有者
+    participant M as PairingMaintenance
+    participant L as SessionLifecycle
+    participant A as AudioEngine / I/O worker
+    Note over W,A: V17 · 真实 C++ 核心已与 Mac TLS 互通；ESP/main 已接线；硬件及无线未验收
+    Note over S,A: 独立播放屏障与输入并行，作废信用边界见 V20
+    W->>S: 认证后 attach / start
+    S->>M: 配对身份与 reserved 快照
+    alt 未授权配对 / USB 预约 / 禁麦
+        S-->>W: 拒绝或关闭；不开始收音
+    else 所有开始门槛满足
+        S->>L: Begin：epoch 递增
+        S->>A: Begin(epoch)：Opening
+        A->>A: worker Open 成功，Running
+        S->>A: Tick 读取实际状态
+        S->>L: Connected(epoch)
+        S-->>W: started 对应 request / epoch
+    end
+    W->>S: 输出 PCM
+    S->>A: Push：最多 20 帧
+    A->>A: worker Read / Write
+    S->>A: TakeInput / output_written
+    S-->>W: 输入 PCM；驱动成功后归还输出容量
+    W->>S: stop 对应 boot / request / epoch
+    S->>L: Stop：Fence
+    L->>A: StopResources：旧 epoch 失效
+    A->>A: worker Close / 清 DMA
+    S->>L: Tick
+    L->>A: ResourcesStopped
+    alt 完整关闭确认
+        A-->>L: Done
+        L-->>S: Idle
+        S-->>W: stopped / resources_stopped=true
+    else 关闭失败或过期
+        L-->>S: Fault
+        S-->>W: 关闭连接；没有 idle 成功回执
+    end

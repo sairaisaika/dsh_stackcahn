@@ -1,0 +1,16 @@
+sequenceDiagram
+    participant Voice as Mac 语音流程
+    participant Link as 认证连接
+    participant Session as 设备会话
+    participant Audio as 设备音频任务
+    participant Ring as 灯光任务
+    participant LEDs as PY32 与 12 颗灯
+    Voice->>Link: LI1 收音中或等待回复
+    Link->>Session: LI2 当前活动代次的状态
+    Audio-->>Session: LI3 驱动接受的 PCM 时间与峰值
+    Session->>Ring: LI5 当前状态或限时灯效
+    Ring->>LEDs: LI5 同一所有者写逐颗帧
+    Note over Ring,LEDs: 限时灯效先完成全黑和释放
+    Session->>Ring: LI4 Stop 或到期后的关闭
+    Ring->>LEDs: LI4 核对全黑并释放
+    Ring-->>Session: LI4 确认释放或报告故障

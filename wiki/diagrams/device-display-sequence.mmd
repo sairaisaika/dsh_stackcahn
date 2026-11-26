@@ -1,0 +1,27 @@
+sequenceDiagram
+    autonumber
+    participant B as 官方 Board
+    participant D as AgentDisplay
+    participant L as 官方 LCD / LVGL port
+    participant H as HAL 触摸桥
+    participant U as device_main / Avatar
+    Note over B,U: V29 · SDK 接缝已测；目标构建与真机验收分开记录
+    B->>D: G1 原 panel / io / geometry
+    D->>L: 清屏、显示开关、lv_init、缓存预算
+    D->>L: G2 port init → add display（RGB565 / DMA）
+    alt 参数 / 驱动 / 初始化 / 锁 / theme 失败
+        D->>D: ESP_ERROR_CHECK fatal；不发布可用 UI
+        Note over D,L: 不是可 catch 后重试的恢复服务
+    else 初始化通过
+        D->>L: lock → offset → G4 theme / 字体 fallback → unlock
+        D-->>B: Board 生命周期的显示对象
+        H->>D: G3 同一类型获取 display 与锁
+        H->>L: 绑定触摸 indev 到同一 display
+        U->>L: G5 显示页面 / 官方 Avatar / 每轮更新
+        U->>L: Home：先销毁 Avatar，再销毁页面
+        Note over H,U: Home 保留显示与触摸；不重启或自动切原厂槽
+    end
+    opt Board owner 最终释放（先释放页面与触摸）
+        D->>L: remove display → 请求 port deinit（异步）
+    end
+    Note over D,L: deinit 返回不等于 RTOS 任务已退出；不支持热重建

@@ -1,0 +1,17 @@
+sequenceDiagram
+    actor Owner as DSH 所有者
+    participant Host as Mac 语音服务
+    participant Device as Sion DSH.AGENT
+    participant Session as 已选 DSH 会话
+    Owner->>Host: 开启局域网待命
+    Note over Host,Device: 麦克风保持关闭
+    Device->>Host: 点 Start 后发起配对认证与空闲 hello
+    Host->>Session: 验证已选会话
+    Session-->>Host: 会话可用
+    Host->>Device: 本地语音就绪后发送 Start
+    Device->>Host: 说「停止」或在设备结束会话
+    Host-->>Device: 释放旧资源并关闭连接
+    Note over Host: 等待下次设备接入
+    Owner->>Host: 停止并关闭局域网待命
+    Device->>Host: 再次发起认证与空闲 hello
+    Note over Host,Device: 可手动接通，设备麦克风仍关闭

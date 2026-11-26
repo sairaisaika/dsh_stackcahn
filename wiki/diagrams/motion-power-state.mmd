@@ -1,0 +1,35 @@
+stateDiagram-v2
+    direction TB
+    state "无所有权：lease=false" as Idle
+    state "资源已持有 / 尚未就绪" as Held
+    state "准备完成：控制脚已确认低" as Off
+    state "Enable 曾通过；Ready 须重读" as Enabled
+    state "分配回滚未知：allocation_unknown=true" as Unknown
+    [*] --> Idle
+    Idle --> Idle: 空 bus / 租约被占：Open false
+    Idle --> Held: Open 获得进程内租约
+    Held --> Unknown: SDK add-device 失败，回滚结果不可得
+    Held --> Held: 操作失败或清理未完成：保留资源
+    Held --> Off: 版本有效；仅 GPIO0 配置并确认低
+    Off --> Held: Enable 开始：先清 prepared，禁止直接重试
+    Held --> Enabled: 写高成功；等待 200ms；方向/输出/输入确认高
+    Enabled --> Enabled: Ready 每次读取方向/输出/输入；失败返回 false
+    Off --> Held: Close：撤销 prepared/enabled
+    Enabled --> Held: Close：撤销 prepared/enabled
+    Held --> Idle: GPIO 已接管则先确认低；删除自有 device 成功
+    Unknown --> Unknown: Open / Close / Ready 均不能报告成功
+    note right of Held
+      只有确认输出锁存为低后才设为输出模式
+      保留其余位；不销毁共享 I2C bus
+      单 worker，原 HAL 扩展芯片所有者必须禁用
+    end note
+    note right of Enabled
+      enabled 是历史软件事实，不是实时电压
+      GPIO 回读不证明电机电源已物理测量
+      供电与 UART 的组合已接
+      命令与设置仍待接
+    end note
+    note right of Unknown
+      无可用 handle 证明 SDK 回滚完成
+      保持故障直至设备重启，不在本轮执行重启
+    end note

@@ -1,0 +1,32 @@
+sequenceDiagram
+    autonumber
+    participant C as Host 调用方 / 测试
+    participant H as Mac AgentTransport
+    participant D as WSS 对端 / 测试设备
+    participant V as Mac 本地语音
+    Note over C,V: V16 · Mac 正式包及模拟对端已测，ESP 实体链路待验收
+    Note over H,D: playback_fence:1 对端的播放排空与打断见 V20
+    C->>H: 显式 listen，传独立配对身份
+    D->>H: TLS + token / pair / device / protocol
+    H->>H: 校验 Upgrade，拒绝重复连接
+    D->>H: hello：boot / epoch / idle
+    H-->>C: 已连接；尚未收音
+    C->>H: start(signal)
+    H->>D: request / boot / 当前 epoch
+    D-->>H: started：相同 request，epoch + 1
+    H-->>C: active；启动续租
+    D->>H: 双通道 PCM / epoch / sequence
+    H-->>V: readInput：有序交付，最多积 32 帧
+    V-->>H: sendOutput：最多 20 帧未确认
+    H->>D: 单声道 PCM
+    D-->>H: output ACK：驱动接受一帧后归还容量
+    C->>H: stop(signal)
+    H->>H: 停心跳，清输入，拒绝待播结果
+    H->>D: stop：关联 request / boot / epoch
+    alt 收到对应的资源释放回执
+        D-->>H: stopped：epoch + 1，resources_stopped=true
+        H-->>C: deviceIdle=true
+    else 断线 / 超时 / 取消 / 错回执
+        H->>H: closed，终止旧回调与操作
+        H-->>C: 失败；远端停止未确认
+    end

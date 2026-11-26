@@ -1,0 +1,21 @@
+sequenceDiagram
+    actor Owner as DSH 所有者
+    participant Host as DSH Host
+    participant Helper as USB 助手
+    participant System as macOS USB
+    participant Device as Sion
+    Owner->>Host: 接通已选会话
+    Host->>Helper: 保存的串口和私有配对编号
+    Helper->>System: 枚举串口并对照设备编号
+    alt 打开前匹配
+        Helper->>System: 独占打开并复核句柄和当前枚举
+        alt 打开后仍匹配
+            Helper-->>Host: 串口已就绪
+            Host->>Device: USB 前导行和配对 TLS
+            Device-->>Host: 认证成功后提交空闲 hello
+        else 节点或身份改变
+            Helper-->>Host: 关闭串口并返回固定错误
+        end
+    else 串口或设备编号不符
+        Helper-->>Host: 返回固定错误
+    end

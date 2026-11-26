@@ -1,0 +1,13 @@
+flowchart TB
+    U["用户点击检查环境与查找配对选项"] --> R["原生 Gateway 与 PairingRemote.diagnose"]
+    R --> O{"已认证 owner？"}
+    O -->|"否"| E["固定权限错误"]
+    O -->|"是"| H["Host 串行调用诊断 helper<br/>15 秒与 16 KiB 上限"]
+    H -->|"检查成功"| D["目录、Python、OpenSSL<br/>macOS USB 端口只读枚举"]
+    H -->|"失败或取消"| F["固定错误，清除旧候选"]
+    D --> B["macOS Host 枚举自身 IPv4 接口<br/>筛选 RFC1918，建议 9080/audio"]
+    B --> V["原生 Remote 返回结果<br/>USB 与地址候选独立成组"]
+    V --> S["用户选 USB 候选<br/>只更新端口草稿"]
+    V --> L["用户选地址候选或手填<br/>只更新 WSS 地址草稿"]
+    S --> I["检查或写入阶段核对实际设备<br/>写入仍需设备授权"]
+    L --> P["主动准备身份后保存候选<br/>真正连接在启动语音服务之后"]

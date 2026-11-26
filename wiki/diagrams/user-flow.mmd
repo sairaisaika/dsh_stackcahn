@@ -1,0 +1,20 @@
+flowchart TD
+    START[目标流程 V3：并非当前可运行演示] --> CONFIG[DSH 插件：选已有会话、配对、配置本地语音]
+    CONFIG --> READY{设备身份、会话、模型<br/>全部可用？}
+    READY -->|否| ERROR[显示具体缺项；保留配置<br/>不录音、不新建替代会话]
+    ERROR --> CONFIG
+    READY -->|是| OPEN[进入设备 DSH.AGENT<br/>用户明确开始]
+    OPEN --> AUTH{认证连接且麦克风允许？}
+    AUTH -->|否| IDLE[DSH 空闲；显示未连接或禁麦]
+    AUTH -->|是| TALK[连续收音、本地转写<br/>进入所选 DSH 会话并播报]
+    TALK --> NEXT{用户动作或故障}
+    NEXT -->|继续说话| TALK
+    NEXT -->|说停止 / Stop| DRAIN[撤销旧代次；取消播放<br/>等待真实资源释放]
+    NEXT -->|断线 / 租约过期| DRAIN
+    NEXT -->|上滑 Home| HOME[记录 Home 意图<br/>走同一资源释放路径]
+    HOME --> DRAIN
+    DRAIN --> OK{释放确认？}
+    OK -->|失败或超时| FAULT[故障；不报告原助手恢复]
+    OK -->|成功且没有 Home| IDLE
+    OK -->|成功且请求 Home| ENTRY[当前只回本镜像入口<br/>返回原厂应用仍待安装方案]
+    IDLE --> OPEN

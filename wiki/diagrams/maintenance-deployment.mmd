@@ -1,0 +1,22 @@
+flowchart TB
+    subgraph MAC["Mac · 维护环境"]
+      direction LR
+      REVIEW["私有双备份和锁定镜像<br/>prepare / compare 本地运行"]
+      CLI["esptool 5.6.0<br/>安装执行器 / 只读采集"]
+      REVIEW -->|"计划、预期数据<br/>全片逐段比对"| CLI
+    end
+    subgraph SION["Sion · ESP32-S3"]
+      direction TB
+      ROM["片上 ROM 下载模式<br/>本次已验证只读"]
+      FLASH["16 MiB Flash<br/>原厂应用、OTA 和 NVS 保留"]
+      SELECT["追加分区表＋替换启动选择器<br/>v26 方案，QEMU 已测"]
+      GPIO["Port B 无源常开按钮<br/>黄 GPIO9 ↔ 黑 GND<br/>红、白线各自绝缘"]
+      STOCK["原厂 v1.6.2<br/>按原厂 OTA 选择"]
+      AGENT["独立 DSH.AGENT v26<br/>尾部应用＋独立配置"]
+      ROM -->|"读 16 MiB"| FLASH
+      ROM -. "应用、分区表、启动器依次写入；待验" .-> SELECT
+      SELECT -. "默认／镜像损坏回退" .-> STOCK
+      GPIO -. "仅冷启动采样" .-> SELECT
+      SELECT -. "按键有效且镜像校验通过" .-> AGENT
+    end
+    CLI -->|"底座 USB‑C<br/>Espressif USB Serial/JTAG"| ROM

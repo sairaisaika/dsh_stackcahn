@@ -1,0 +1,57 @@
+sequenceDiagram
+    autonumber
+    participant U as 设备 UI / main
+    participant P as 配对维护所有者
+    participant N as 网络 worker / mailbox
+    participant E as ESP Wi-Fi / SNTP / WSS
+    participant S as AgentSession
+    Note over U,S: V18 · 已有代码与 SDK 夹具；无线/TLS/原厂返回未做真机验收
+    U->>N: Start（显式连接）
+    N->>P: ReserveTransport（无 USB 窗口/写入）
+    alt 未配对或维护已预约
+        P-->>N: 拒绝；不开网络和音频
+        N-->>U: 未配对 / USB 维护忙
+    else 取得本次 ticket
+        P-->>N: ticket
+        N->>N: 创建 worker；主循环继续
+        N->>P: ReadTransport(ticket)
+        P-->>N: 独立配对记录；读取期间不持 UI 锁
+        loop 原厂已存网络；本次连接有总时间上限
+            N->>E: 只读记录；RAM 配置；STA 连接
+            alt 当前 STA 关联并取得本接口 IPv4
+                E-->>N: GOT_IP
+            else 连接失败或单次超时
+                N->>E: esp_wifi_stop
+                E-->>N: STA_STOP 后才允许尝试下一条
+            end
+        end
+        Note over N,E: 用户取消、耗尽或停站未确认时停止尝试
+        N->>E: SNTP 等校时；失败不开 TLS
+        N->>E: 配对 CA + sion-host + Bearer；禁自动重连
+        E-->>N: SDK 回调；分片重组与队列上限
+        N-->>U: Connected / Text / Binary
+        U->>S: AttachAuthenticated / 分发；hello 只表示空闲
+        S->>N: 有界发送；音频仅在 Host start 后开启
+    end
+    alt 已获地址后断链、失去 IP 或地址发生变化
+        E-->>N: T21 同一 STA 的网络事件
+        N->>N: 关闭本代队列；清除未发送消息
+        N-->>U: Closed；新连接等待本代清理
+        U->>S: 断线；旧音频代次失效
+    else 用户 Stop / Home
+        U->>N: Close 锁存；清旧队列
+        U->>S: LocalStop；音频 epoch 失效并请求关闭
+    end
+    par 网络退出
+        N->>E: destroy 等 SDK task；停 Wi-Fi / 注销回调
+        E-->>N: 清理成功 / 失败
+        alt 清理成功
+            N->>P: ReleaseTransport(ticket)
+            N-->>U: Finished
+        else 未确认清理
+            N-->>U: Fault；保留预约，不允许重连
+        end
+    and 主循环仍运行
+        U->>S: Tick；Home 等音频及网络均释放
+    end
+    Note over U,S: Home 超时显示失败；不提前返回，不声称原助手已恢复

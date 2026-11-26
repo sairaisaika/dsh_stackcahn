@@ -1,0 +1,41 @@
+{
+  "originalPartitionsEnd": "0xe10000",
+  "provisionalAppStart": "0xe10000",
+  "appStartAlignment": 65536,
+  "appSizeAlignment": 4096,
+  "provisionalConfigStart": "0xffc000",
+  "configBytes": 16384,
+  "availableAppBytes": 2015232,
+  "imageBytes": 2063952,
+  "requiredAppBytes": 2064384,
+  "remainingBytes": -49152,
+  "fitsCurrentImage": false,
+  "installable": false,
+  "partitionTableGenerated": false,
+  "bootSelectorGenerated": false,
+  "deviceAccess": false,
+  "unresolved": [
+    "Boot entry and manual factory return",
+    "Factory OTA coexistence",
+    "Remaining camera/motion and other feature growth",
+    "Fresh device inspection before an approved installation",
+    "Hardware voice/binding and restore-write acceptance"
+  ],
+  "version": 1,
+  "profile": "independent-logging-v16",
+  "appVersion": "dsh-agent-v16",
+  "backupSha256": "33553259023c7a537a4c3810ef28d5682617e91b6359845bcef3d61ac312c218",
+  "imageSha256": "2154e2c64f5845e45e465004b0f1499d4eef9312d4043a0c5f1c95e4f34b072f",
+  "buildReceiptSha256": "90358d10c90ed96fd0badf774fb89d15508784f920e42976568bed657dc0bc2e",
+  "imageValidation": {
+    "imageBytes": 2063952,
+    "flashMode": 2,
+    "flashSizeFreq": 79,
+    "checksumValid": true,
+    "digestValid": true,
+    "version": "dsh-agent-v16",
+    "project": "stack-chan",
+    "idf": "v6.1"
+  },
+  "observation": "Saved backup and local candidate only; no live device check"
+}

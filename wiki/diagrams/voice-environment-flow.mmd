@@ -1,0 +1,20 @@
+flowchart TD
+    U[用户显式点击环境检查 / 离线自检] -->|L30 owner Remote| R[VoiceRuntime<br/>与 Start 共用操作互斥]
+    R --> G{服务已停止且无在途操作？}
+    G -->|否| BUSY[拒绝 busy<br/>先停止并关闭服务]
+    G -->|是 L31| E[VoiceEnvironment.inspect<br/>重新检查可信 Host 安装配置]
+    M[固定模型 / 音频清单<br/>依赖版本锁] -->|L32| E
+    E -->|L33 有界进程 / 取消等退出| P[Python 3.11 独立环境<br/>只读已安装包元数据]
+    E -->|L34| F[私有文件 / 原生收据<br/>长度和 SHA / 文件类型 / 权限]
+    P --> Q{平台、依赖和文件条件满足？}
+    F --> Q
+    Q -->|否| BAD[L36 按项显示未配置 / 缺失 / 校验失败<br/>不加载模型，不启动 listener]
+    Q -->|是| MODE{用户选择了离线自检？}
+    MODE -->|否| META[L36 文件 / 依赖通过<br/>loadTest = not_run]
+    MODE -->|是 L35| LOAD[实际 DSP / VAD 预热与静音帧<br/>固定中英文 TTS → 中文 PCM → Whisper]
+    LOAD --> CLEAN[成功 / 失败 / 取消均清理所有已创建 worker<br/>等待实际退出；不播放或录音]
+    CLEAN --> DONE[L36 passed / failed + 固定失败阶段<br/>取消后迟到结果丢弃]
+    META -. 显式启动服务 .-> START[Start 重新 inspect<br/>旧页面结果不作为启动凭证]
+    DONE -. 显式启动服务 .-> START
+    START -->|条件满足才继续| NEXT[配对身份租约与 listener<br/>见 V24；Connect 才启动设备音频]
+    NOTE[本图：本地代码与离线模型已测<br/>自动安装 / 用户实例 / 真机仍待完成] --- E

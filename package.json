@@ -1,0 +1,115 @@
+{
+  "name": "dsh-stackchan",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "description": "Session-bound voice handoff core with explicit factory-voice capability gating",
+  "engines": {
+    "node": ">=22",
+    "dsh": "0.2.2-rc.5"
+  },
+  "scripts": {
+    "test": "node --test test/*.test.mjs",
+    "test:agent": "python3 scripts/test_agent.py",
+    "wiki:prepare": "python3 scripts/wiki_context.py prepare",
+    "wiki:check": "python3 scripts/wiki_context.py check",
+    "demo": "node scripts/demo.mjs",
+    "doctor": "node scripts/doctor.mjs",
+    "build:plugin": "node scripts/build_plugin.mjs",
+    "build:remote": "node scripts/build_remote.mjs"
+  },
+  "exports": {
+    ".": "./src/plugin.mjs",
+    "./dsh": "./src/dsh-session.mjs",
+    "./bridge": "./src/bridge.mjs",
+    "./client": "./client/client.js",
+    "./package.json": "./package.json",
+    "./remote-api": {
+      "types": "./src/remote-api/index.ts",
+      "default": "./lib/remote-api.js"
+    },
+    "./typert": {
+      "types": "./lib/typert.host.d.ts",
+      "default": "./lib/typert.host.js"
+    },
+    "./remote": {
+      "types": "./lib/typert.remote-client.d.ts",
+      "default": "./lib/typert.remote-client.js"
+    }
+  },
+  "license": "MIT",
+  "main": "./src/plugin.mjs",
+  "peerDependencies": {
+    "@deepseek-ai/cordis": "~4.1.0"
+  },
+  "dependencies": {
+    "@deepseek-ai/dsh-error": "0.2.2-rc.5",
+    "@deepseek-ai/dsh-tools": "0.2.2-rc.5",
+    "@deepseek-ai/dsh-typert-protocol": "0.2.2-rc.5",
+    "@deepseek-ai/schemastery": "3.19.0",
+    "sharp": "0.35.5",
+    "ws": "8.23.0",
+    "zod": "4.6.6"
+  },
+  "devDependencies": {
+    "@deepseek-ai/dsh-api-gateway": "0.2.2-rc.5",
+    "@deepseek-ai/dsh-app-boot": "0.2.2-rc.5",
+    "@deepseek-ai/dsh-attachment": "0.2.2-rc.5",
+    "@deepseek-ai/dsh-attachment-local": "0.2.2-rc.5",
+    "@deepseek-ai/dsh-config-editor": "0.2.2-rc.5",
+    "@deepseek-ai/dsh-llm": "0.2.2-rc.5",
+    "@deepseek-ai/dsh-settings": "0.2.2-rc.5",
+    "@deepseek-ai/dsh-tool-executor-native": "0.2.2-rc.5",
+    "@deepseek-ai/dsh-typert-generator": "0.2.2-rc.5",
+    "@deepseek-ai/dsh-typert-loader": "0.2.2-rc.5",
+    "@deepseek-ai/dsh-typert-registry": "0.2.2-rc.5",
+    "esbuild": "0.25.12",
+    "react": "18.3.1",
+    "react-dom": "18.3.1",
+    "typescript": "6.0.3"
+  },
+  "files": [
+    "src/",
+    "client/",
+    "scripts/agent_pairing_host.py",
+    "scripts/agent_usb_audio.py",
+    "scripts/run_agent_relay.mjs",
+    "scripts/prepare_agent_relay.mjs",
+    "scripts/agent_pairing_identity.py",
+    "scripts/voice_environment.py",
+    "scripts/agent_environment.py",
+    "scripts/prepare_runtime.py",
+    "scripts/local_speech.py",
+    "scripts/local_audio.py",
+    "scripts/prepare_audio.py",
+    "scripts/prepare_voice.py",
+    "scripts/add_voice.py",
+    "vendor/voice/",
+    "vendor/audio/",
+    "vendor/pyserial/",
+    "scripts/agent_pairing_usb.py",
+    "scripts/pairing.mjs",
+    "cordis.patch.yml",
+    "README.md",
+    "LICENSE",
+    "lib/remote-api.js",
+    "lib/typert.host.js",
+    "lib/typert.host.d.ts",
+    "lib/typert.remote-client.js",
+    "lib/typert.remote-client.d.ts",
+    "lib/typert.remote-client.d.ts.map",
+    "scripts/prepare_voice_installation.py"
+  ],
+  "dsh": {
+    "bundle": {
+      "patch": "./cordis.patch.yml"
+    },
+    "client": {
+      "platform": "web",
+      "inject": [
+        "@deepseek-ai/dsh-client-ui-settings",
+        "@deepseek-ai/dsh-api-remotes"
+      ]
+    }
+  }
+}

@@ -1,0 +1,165 @@
+diff --git a/main/hal/hal.cpp b/main/hal/hal.cpp
+--- a/main/hal/hal.cpp
++++ b/main/hal/hal.cpp
+@@ -1,3 +1,5 @@
++#include <sdkconfig.h>
++#include <sion/firmware_trial.h>
+ /*
+  * SPDX-FileCopyrightText: 2026 M5Stack Technology CO LTD
+  *
+@@ -26,11 +28,15 @@
+ 
+     // Initialize NVS
+     esp_err_t ret = nvs_flash_init();
++#if !CONFIG_SION_DUAL_BACKEND
+     if (ret == ESP_ERR_NVS_NO_FREE_PAGES || ret == ESP_ERR_NVS_NEW_VERSION_FOUND) {
+         ESP_ERROR_CHECK(nvs_flash_erase());
+         ret = nvs_flash_init();
+     }
++#endif
++    // A damaged/full NVS is a recovery condition, never permission to erase it.
+     ESP_ERROR_CHECK(ret);
++    sion::StartFirmwareTrial();
+ 
+     xiaozhi_board_init();
+     xiaozhi_mcp_init();
+@@ -89,6 +95,10 @@
+ 
+ static void _confirm_ota_image_if_stable()
+ {
++#if CONFIG_SION_DUAL_BACKEND
++    return;  // Only the explicit USB trial confirmation may mark this image valid.
++#endif
++
+     constexpr uint32_t ota_confirm_delay_ms = 20000;
+     static bool ota_confirm_checked         = false;
+     if (ota_confirm_checked || GetHAL().millis() < ota_confirm_delay_ms) {
+@@ -235,6 +245,11 @@
+ 
+ void Hal::factoryReset()
+ {
++#if CONFIG_SION_DUAL_BACKEND
++    mclog::tagError(_tag, "Factory reset disabled while preserving original configuration");
++    return;
++#endif
++
+     mclog::tagInfo(_tag, "start factory reset");
+     ESP_ERROR_CHECK(nvs_flash_erase());
+     reboot();
+diff --git a/main/hal/hal_app_setup.cpp b/main/hal/hal_app_setup.cpp
+--- a/main/hal/hal_app_setup.cpp
++++ b/main/hal/hal_app_setup.cpp
+@@ -1,3 +1,5 @@
++#include <sdkconfig.h>
++#include <sion/firmware_trial.h>
+ /*
+  * SPDX-FileCopyrightText: 2026 M5Stack Technology CO LTD
+  *
+@@ -12,6 +14,10 @@
+ // Reboot into the existing App setup UI rather than creating UI in those tasks.
+ [[noreturn]] void Hal::requestAppSetup()
+ {
++#if CONFIG_SION_DUAL_BACKEND
++    sion::RefuseProvisioningDuringPreservation();
++#endif
++
+     // A deliberate reboot for provisioning must not roll back a working OTA
+     // image merely because credentials or App binding are missing.
+     const auto* running = esp_ota_get_running_partition();
+diff --git a/main/hal/hal_account.cpp b/main/hal/hal_account.cpp
+--- a/main/hal/hal_account.cpp
++++ b/main/hal/hal_account.cpp
+@@ -1,3 +1,5 @@
++#include <sdkconfig.h>
++
+ /*
+  * SPDX-FileCopyrightText: 2026 M5Stack Technology CO LTD
+  *
+@@ -190,6 +192,11 @@
+ 
+ bool Hal::unbindAccount(std::function<void(std::string_view)> onLog)
+ {
++#if CONFIG_SION_DUAL_BACKEND
++    onLog("Account unbinding disabled while preserving the original assistant");
++    return false;
++#endif
++
+     std::string token = secret_logic::generate_auth_token();
+ 
+     auto &board  = Board::GetInstance();
+diff --git a/main/hal/hal_ota.cpp b/main/hal/hal_ota.cpp
+--- a/main/hal/hal_ota.cpp
++++ b/main/hal/hal_ota.cpp
+@@ -1,3 +1,5 @@
++#include <sdkconfig.h>
++
+ /*
+  * SPDX-FileCopyrightText: 2026 M5Stack Technology CO LTD
+  *
+@@ -13,6 +15,11 @@
+ 
+ bool Hal::updateFirmware(std::function<void(std::string_view)> onLog)
+ {
++#if CONFIG_SION_DUAL_BACKEND
++    onLog("Firmware updates require a reviewed installation; original rescue slot protected");
++    return false;
++#endif
++
+     onLog("Checking firmware updates...");
+ 
+     Ota ota;
+diff --git a/main/hal/utils/ota/ota.c b/main/hal/utils/ota/ota.c
+--- a/main/hal/utils/ota/ota.c
++++ b/main/hal/utils/ota/ota.c
+@@ -1,3 +1,5 @@
++#include <sdkconfig.h>
++
+ /*
+  * SPDX-FileCopyrightText: 2026 M5Stack Technology CO LTD
+  *
+@@ -82,6 +84,10 @@
+ 
+ esp_err_t my_esp_https_ota(const esp_https_ota_config_t *ota_config, void (*on_progress)(int progress))
+ {
++#if CONFIG_SION_DUAL_BACKEND
++    return ESP_ERR_NOT_SUPPORTED;  // Also covers App Center downloads.
++#endif
++
+     if (ota_config == NULL || ota_config->http_config == NULL) {
+         return ESP_ERR_INVALID_ARG;
+     }
+@@ -129,6 +135,11 @@
+ 
+ void start_ota_update(const char *url, void (*on_progress)(int progress))
+ {
++#if CONFIG_SION_DUAL_BACKEND
++    ESP_LOGE(TAG, "App installation disabled: original rescue slot protected");
++    return;
++#endif
++
+     ESP_LOGI(TAG, "Starting OTA example task");
+ #ifdef CONFIG_EXAMPLE_FIRMWARE_UPGRADE_BIND_IF
+     esp_netif_t *netif = get_example_netif_from_desc(bind_interface_name);
+diff --git a/main/CMakeLists.txt b/main/CMakeLists.txt
+--- a/main/CMakeLists.txt
++++ b/main/CMakeLists.txt
+@@ -29,7 +29,9 @@
+ list(APPEND STACK_CHAN_SOURCES main.cpp)
+ 
+ # Define source files
+-set(SOURCES "sion/backend_runtime.cc"
++set(SOURCES "sion/preservation_storage.cc"
++            "sion/firmware_trial.cc"
++            "sion/backend_runtime.cc"
+             "sion/pairing_store.cc"
+             "sion/pairing_usb.cc"
+             "sion/paired_tls.cc"
+@@ -563,3 +565,8 @@
+ else()
+     message(STATUS "Assets partition not found, using v1 partition table")
+ endif()
++
++# Protect NVS through callers outside Settings as well.
++if(CONFIG_SION_DUAL_BACKEND)
++    target_link_options(${COMPONENT_LIB} INTERFACE "-Wl,--wrap=nvs_open" "-Wl,--wrap=nvs_open_from_partition" "-Wl,--wrap=nvs_flash_erase" "-Wl,--wrap=nvs_flash_erase_partition")
++endif()

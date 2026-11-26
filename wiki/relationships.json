@@ -1,0 +1,2336 @@
+[
+  {
+    "id": "B01",
+    "producer": "Owner",
+    "consumer": "SessionController",
+    "status": "core-implemented-runtime-unverified",
+    "data": "select / enter / exit",
+    "scope": "existing design / partial core"
+  },
+  {
+    "id": "B02",
+    "producer": "WakeProject",
+    "consumer": "SessionController",
+    "status": "proposed",
+    "data": "wake intent",
+    "scope": "existing design / partial core"
+  },
+  {
+    "id": "B03",
+    "producer": "DeviceAdapter",
+    "consumer": "AudioPipeline",
+    "status": "proposed",
+    "data": "audio frames / format",
+    "scope": "existing design / partial core"
+  },
+  {
+    "id": "B04",
+    "producer": "AudioPipeline",
+    "consumer": "DSHSession",
+    "status": "core-implemented-runtime-unverified",
+    "data": "final text / turn",
+    "scope": "existing design / partial core"
+  },
+  {
+    "id": "B05",
+    "producer": "DSHSession",
+    "consumer": "SpeechOutput",
+    "status": "core-implemented-runtime-unverified",
+    "data": "reply text",
+    "scope": "existing design / partial core"
+  },
+  {
+    "id": "B06",
+    "producer": "SpeechOutput",
+    "consumer": "DeviceAdapter",
+    "status": "proposed",
+    "data": "play / cancel / done",
+    "scope": "existing design / partial core"
+  },
+  {
+    "id": "B07",
+    "producer": "DSHSession",
+    "consumer": "CapabilityRouter",
+    "status": "proposed",
+    "data": "tool call / cancel",
+    "scope": "existing design / partial core"
+  },
+  {
+    "id": "B08",
+    "producer": "CapabilityRouter",
+    "consumer": "DeviceAdapter",
+    "status": "proposed",
+    "data": "validated command",
+    "scope": "existing design / partial core"
+  },
+  {
+    "id": "B09",
+    "producer": "DeviceAdapter",
+    "consumer": "DSHSession",
+    "status": "proposed",
+    "data": "result / device event",
+    "scope": "existing design / partial core"
+  },
+  {
+    "id": "B10",
+    "producer": "SessionController",
+    "consumer": "AudioPipeline",
+    "status": "core-implemented-runtime-unverified",
+    "data": "capture lease / epoch",
+    "scope": "existing design / partial core"
+  },
+  {
+    "id": "B11",
+    "producer": "SessionController",
+    "consumer": "SpeechOutput",
+    "status": "core-implemented-runtime-unverified",
+    "data": "interrupt / release",
+    "scope": "existing design / partial core"
+  },
+  {
+    "id": "B12",
+    "producer": "SessionController",
+    "consumer": "OriginalAssistant",
+    "status": "restore-contract-tested-device-missing",
+    "data": "restore request / receipt",
+    "scope": "existing design / partial core"
+  },
+  {
+    "id": "B13",
+    "producer": "DSHMemory",
+    "consumer": "DSHSession",
+    "status": "proposed",
+    "data": "DSH memory scope",
+    "scope": "existing design / partial core"
+  },
+  {
+    "id": "B14",
+    "producer": "SessionController",
+    "consumer": "Diagnostics",
+    "status": "proposed",
+    "data": "state / failure",
+    "scope": "existing design / partial core"
+  },
+  {
+    "id": "B15",
+    "producer": "SessionController",
+    "consumer": "DeviceMode",
+    "status": "mode-client-built-voice-adapter-missing",
+    "data": "request / lease / generation",
+    "scope": "product lifecycle",
+    "detail": "租约、模式请求；设备是实际音频所有者，不能用 Mac 状态替代设备确认"
+  },
+  {
+    "id": "B16",
+    "producer": "DeviceMode",
+    "consumer": "SessionController",
+    "status": "mode-client-built-voice-adapter-missing",
+    "data": "mode receipt / readiness",
+    "scope": "product lifecycle",
+    "detail": "关联 boot/lease 的实际确认与故障；设备状态投影到界面"
+  },
+  {
+    "id": "B17",
+    "producer": "DeviceMode",
+    "consumer": "OriginalAssistant",
+    "status": "firmware-built-hardware-unverified",
+    "data": "watchdog / physical return",
+    "scope": "product lifecycle",
+    "detail": "设备独立超时或物理返回；原模式选定不等于原云可用"
+  },
+  {
+    "id": "B18",
+    "producer": "FactoryConfig",
+    "consumer": "OriginalAssistant",
+    "status": "firmware-built-hardware-unverified",
+    "data": "original transport / binding",
+    "scope": "product lifecycle",
+    "detail": "保留官方 MQTT/WebSocket 配置与绑定，不把原云 token 发本地后端"
+  },
+  {
+    "id": "B19",
+    "producer": "LocalConfig",
+    "consumer": "DeviceMode",
+    "status": "firmware-built-hardware-unverified",
+    "data": "paired endpoint / version",
+    "scope": "product lifecycle",
+    "detail": "sion_pair 双槽写入和下次启动读取；原厂命名空间不写"
+  },
+  {
+    "id": "B20",
+    "producer": "DeviceMode",
+    "consumer": "DeviceAdapter",
+    "status": "firmware-built-hardware-unverified",
+    "data": "audio / wake ownership",
+    "scope": "product lifecycle",
+    "detail": "互斥捕获、播放和唤醒；注销旧回调并清理旧代次任务"
+  },
+  {
+    "id": "B21",
+    "producer": "AudioPipeline",
+    "consumer": "LocalASR",
+    "status": "proposed",
+    "data": "decoded frames / cancel",
+    "scope": "product lifecycle",
+    "detail": "本地模型消费者；返回 final 转写，由 AudioPipeline 转入 B04"
+  },
+  {
+    "id": "B22",
+    "producer": "LocalASR",
+    "consumer": "AudioPipeline",
+    "status": "proposed",
+    "data": "final transcript / failure",
+    "scope": "product lifecycle",
+    "detail": "来源/代次校验，识别失败不发空提示；停止走控制路径"
+  },
+  {
+    "id": "B23",
+    "producer": "SpeechOutput",
+    "consumer": "LocalTTS",
+    "status": "proposed",
+    "data": "text / playback ID / cancel",
+    "scope": "product lifecycle",
+    "detail": "只合成 DSH 原文；模型/音色与取消绑定"
+  },
+  {
+    "id": "B24",
+    "producer": "LocalTTS",
+    "consumer": "SpeechOutput",
+    "status": "proposed",
+    "data": "audio chunks / complete",
+    "scope": "product lifecycle",
+    "detail": "有界音频与结束/错误；TTS 完成不等于设备播放完成"
+  },
+  {
+    "id": "B25",
+    "producer": "DeviceAdapter",
+    "consumer": "WakeProject",
+    "status": "proposed",
+    "data": "leased frames / source epoch",
+    "scope": "product lifecycle",
+    "detail": "可选个性化检测和注册音源；音频所有权/旧帧约束同 P1"
+  },
+  {
+    "id": "B26",
+    "producer": "HostLifecycle",
+    "consumer": "SessionController",
+    "status": "proposed",
+    "data": "start / unload / recovery",
+    "scope": "product lifecycle",
+    "detail": "安装版本检查、插件卸载、服务退出影响现有租约；状态不得假报恢复"
+  },
+  {
+    "id": "B27",
+    "producer": "Owner",
+    "consumer": "MacPairing",
+    "status": "host-code-tested-device-unverified",
+    "data": "offline identity generation",
+    "scope": "pairing lifecycle",
+    "detail": "主人离线生成私有包；不附带 DSH 会话权限"
+  },
+  {
+    "id": "B28",
+    "producer": "MacPairing",
+    "consumer": "USBPairing",
+    "status": "firmware-built-hardware-unverified",
+    "data": "device ID / pairing record",
+    "scope": "pairing lifecycle",
+    "detail": "USB 信任边界；检查设备 ID 和旧配对 ID"
+  },
+  {
+    "id": "B29",
+    "producer": "USBPairing",
+    "consumer": "LocalConfig",
+    "status": "firmware-built-hardware-unverified",
+    "data": "two-slot commit / revoke",
+    "scope": "pairing lifecycle",
+    "detail": "容量拒绝、失败读回、撤销 tombstone；不擦除原 NVS"
+  },
+  {
+    "id": "B30",
+    "producer": "MacPairing",
+    "consumer": "ModeClient",
+    "status": "host-code-tested-device-unverified",
+    "data": "CA / control credential",
+    "scope": "pairing lifecycle",
+    "detail": "Mac HTTPS 客户端验证设备身份并持有模式 epoch"
+  },
+  {
+    "id": "B31",
+    "producer": "MacPairing",
+    "consumer": "LocalVoiceServer",
+    "status": "proposed",
+    "data": "host identity / audio credential",
+    "scope": "pairing lifecycle",
+    "detail": "P2 语音服务尚未加载 host TLS 配置；不是已有消费者"
+  },
+  {
+    "id": "B32",
+    "producer": "LocalConfig",
+    "consumer": "PairedTLS",
+    "status": "firmware-built-hardware-unverified",
+    "data": "pair CA / server name",
+    "scope": "pairing lifecycle",
+    "detail": "本地 WSS 只信任配对主机；原云 trust store 不变"
+  },
+  {
+    "id": "B33",
+    "producer": "USBPairing",
+    "consumer": "DeviceMode",
+    "status": "firmware-built-hardware-unverified",
+    "data": "maintenance reservation",
+    "scope": "pairing lifecycle",
+    "detail": "只在 original 预约，暂停新的进入；下次主动重启生效"
+  },
+  {
+    "id": "B34",
+    "producer": "USBPairing",
+    "consumer": "FirmwareTrial",
+    "data": "nonce / image / observed check",
+    "detail": "显式 USB 确认原语音与 App 已现场验证；旧 boot/镜像/缺少确认拒绝",
+    "status": "firmware-built-hardware-unverified",
+    "scope": "installation preservation and trial"
+  },
+  {
+    "id": "B35",
+    "producer": "FirmwareTrial",
+    "consumer": "OTAMetadata",
+    "data": "confirm / timeout rollback",
+    "detail": "唯一确认写入者；超时请求回滚，失败不假报成功；启动器是真机待验消费者",
+    "status": "firmware-built-hardware-unverified",
+    "scope": "installation preservation and trial"
+  },
+  {
+    "id": "B36",
+    "producer": "FirmwareTrial",
+    "consumer": "Pairing / ModeControl",
+    "data": "restrict until next reboot",
+    "detail": "整个试运行启动期间禁止配对写入/本地模式，确认后仍需主动重启",
+    "status": "firmware-built-hardware-unverified",
+    "scope": "installation preservation and trial"
+  },
+  {
+    "id": "B37",
+    "producer": "Settings / WiFi SDK",
+    "consumer": "NvsGuard",
+    "data": "open / destructive erase",
+    "detail": "保护关键 namespace，包括绕过 Settings 的托管组件；全区擦除拒绝",
+    "status": "firmware-built-hardware-unverified",
+    "scope": "installation preservation and trial"
+  },
+  {
+    "id": "B38",
+    "producer": "NvsGuard",
+    "consumer": "OriginalConfig",
+    "data": "read-only original identity",
+    "detail": "原 board/wifi/mqtt/websocket/assets/account/app_config 只读；独立配对和运行状态分开",
+    "status": "firmware-built-hardware-unverified",
+    "scope": "installation preservation and trial"
+  },
+  {
+    "id": "I1",
+    "producer": "DSH Host",
+    "consumer": "VoiceBridge",
+    "data": "device-idle profile",
+    "status": "core-implemented-runtime-unverified",
+    "detail": "See independent-agent.md; host tests are not device integration.",
+    "scope": "independent Agent lifecycle"
+  },
+  {
+    "id": "I2",
+    "producer": "Voice adapter / VoiceBridge",
+    "consumer": "Selected DSH session",
+    "data": "transcript / reply",
+    "status": "core-implemented-runtime-unverified",
+    "detail": "See independent-agent.md; host tests are not device integration.",
+    "scope": "independent Agent lifecycle"
+  },
+  {
+    "id": "I3",
+    "producer": "VoiceBridge",
+    "consumer": "Voice adapter",
+    "data": "release / deviceIdle ack",
+    "status": "core-implemented-runtime-unverified",
+    "detail": "See independent-agent.md; host tests are not device integration.",
+    "scope": "independent Agent lifecycle"
+  },
+  {
+    "id": "I4",
+    "producer": "Device events / timer",
+    "consumer": "SessionLifecycle",
+    "data": "epoch / lease / disconnect",
+    "status": "core-implemented-runtime-unverified",
+    "detail": "See independent-agent.md; host tests are not device integration.",
+    "scope": "independent Agent lifecycle"
+  },
+  {
+    "id": "I5",
+    "producer": "SessionLifecycle",
+    "consumer": "AudioRuntime",
+    "data": "stop / drain acknowledgment",
+    "status": "firmware-built-hardware-unverified",
+    "detail": "Audio Stop fences queues and awaits real codec/DMA close. Camera/action consumers are not connected.",
+    "scope": "independent Agent lifecycle"
+  },
+  {
+    "id": "I6",
+    "producer": "Home UI / SessionLifecycle",
+    "consumer": "Return adapter",
+    "data": "fence then return",
+    "status": "firmware-built-hardware-unverified",
+    "detail": "Official Home widget -> lifecycle -> local image entry. Factory-image navigation remains missing.",
+    "scope": "independent Agent lifecycle"
+  },
+  {
+    "id": "I7",
+    "producer": "Independent app_main",
+    "consumer": "Display / touch HAL",
+    "data": "display-only initialization",
+    "detail": "Pinned init transformation; NVS errors fail without erase; no factory app or camera initialization.",
+    "status": "firmware-built-hardware-unverified",
+    "scope": "independent Agent entry"
+  },
+  {
+    "id": "I8",
+    "producer": "Settings / SDK libraries",
+    "consumer": "AgentStorageGuard / NVS",
+    "data": "factory read-only / isolated config",
+    "detail": "Only dedicated sion_cfg/settings can write. Raw page writes included; current device partition absent. See device-settings.md.",
+    "status": "firmware-built-hardware-unverified",
+    "scope": "independent Agent entry"
+  },
+  {
+    "id": "I9",
+    "producer": "Authenticated owner",
+    "consumer": "AudioEngine",
+    "data": "Begin / epoch / Stop",
+    "status": "proposed-producer-missing",
+    "scope": "independent Agent audio",
+    "detail": "See agent-audio.md. Real firmware adapter and host error-injection evidence; no hardware or acoustic acceptance."
+  },
+  {
+    "id": "I10",
+    "producer": "CoreS3 codec",
+    "consumer": "AudioEngine",
+    "data": "mic / reference PCM",
+    "status": "firmware-built-hardware-unverified",
+    "scope": "independent Agent audio",
+    "detail": "See agent-audio.md. Real firmware adapter and host error-injection evidence; no hardware or acoustic acceptance."
+  },
+  {
+    "id": "I11",
+    "producer": "AudioEngine",
+    "consumer": "Mac transport",
+    "data": "bounded input frames",
+    "status": "proposed-consumer-missing",
+    "scope": "independent Agent audio",
+    "detail": "See agent-audio.md. Real firmware adapter and host error-injection evidence; no hardware or acoustic acceptance."
+  },
+  {
+    "id": "I12",
+    "producer": "Mac transport",
+    "consumer": "AudioEngine",
+    "data": "epoch / sequence / PCM",
+    "status": "proposed-producer-missing",
+    "scope": "independent Agent audio",
+    "detail": "See agent-audio.md. Real firmware adapter and host error-injection evidence; no hardware or acoustic acceptance."
+  },
+  {
+    "id": "I13",
+    "producer": "AudioEngine",
+    "consumer": "CoreS3 codec",
+    "data": "PCM32 / short-write failure",
+    "status": "firmware-built-hardware-unverified",
+    "scope": "independent Agent audio",
+    "detail": "See agent-audio.md. Real firmware adapter and host error-injection evidence; no hardware or acoustic acceptance."
+  },
+  {
+    "id": "I14",
+    "producer": "AudioRuntime",
+    "consumer": "CoreS3 codec / DMA",
+    "data": "close / clear / ack",
+    "status": "firmware-built-hardware-unverified",
+    "scope": "independent Agent audio",
+    "detail": "See agent-audio.md. Real firmware adapter and host error-injection evidence; no hardware or acoustic acceptance."
+  },
+  {
+    "id": "I15",
+    "producer": "Independent app_main",
+    "consumer": "AudioRuntime",
+    "data": "lazy I/O worker startup",
+    "status": "firmware-built-hardware-unverified",
+    "scope": "independent Agent audio",
+    "detail": "Task creation does not acquire codec or record. Failure is visible in the UI."
+  },
+  {
+    "id": "S1",
+    "producer": "DSH Settings UI",
+    "consumer": "Host Config",
+    "data": "draft / expected revision",
+    "status": "core-implemented-runtime-unverified",
+    "scope": "dual-client settings",
+    "detail": "Native Host Config and Client implemented. S1/S2 verified with isolated real DSH Settings profile; S3 session reads tested with fixtures only. Device/voice consumers missing; see settings-ui.md."
+  },
+  {
+    "id": "S2",
+    "producer": "Host Config",
+    "consumer": "DSH Settings UI",
+    "data": "accepted / applied / error",
+    "status": "core-implemented-runtime-unverified",
+    "scope": "dual-client settings",
+    "detail": "Native Host Config and Client implemented. S1/S2 verified with isolated real DSH Settings profile; S3 session reads tested with fixtures only. Device/voice consumers missing; see settings-ui.md."
+  },
+  {
+    "id": "S3",
+    "producer": "Host Plugin",
+    "consumer": "Session Controller",
+    "data": "validate existing session",
+    "status": "core-implemented-runtime-unverified",
+    "scope": "dual-client settings",
+    "detail": "Native Host Config and Client implemented. S1/S2 verified with isolated real DSH Settings profile; S3 session reads tested with fixtures only. Device/voice consumers missing; see settings-ui.md."
+  },
+  {
+    "id": "S4",
+    "producer": "Host Config",
+    "consumer": "Voice Runtime",
+    "data": "models / voice preferences",
+    "status": "host-code-tested-device-unverified",
+    "scope": "voice-runtime.md; isolated Host and TLS tests; user profile and hardware unverified",
+    "detail": "Active identity lease, listener, LocalVoice and saved preferences now connected; model setup UI and user deployment remain incomplete."
+  },
+  {
+    "id": "S5",
+    "producer": "Host Plugin",
+    "consumer": "Device Config",
+    "data": "authenticated requests",
+    "status": "proposed-producer-consumer-missing",
+    "scope": "dual-client settings",
+    "detail": "See settings-ui.md; planned UI and configuration consumers, no runtime acceptance."
+  },
+  {
+    "id": "S6",
+    "producer": "Device Settings UI",
+    "consumer": "Device Config",
+    "data": "volume / mic disable / retry",
+    "status": "firmware-built-hardware-unverified",
+    "scope": "dual-client settings",
+    "detail": "Local volume, mute, capture interlock, save and UI implemented; Host projection, pairing and reconnect still missing. Dedicated storage not installed."
+  },
+  {
+    "id": "S7",
+    "producer": "Device Config",
+    "consumer": "Device UI / Host",
+    "data": "applied revision / status",
+    "status": "firmware-built-hardware-unverified",
+    "scope": "dual-client settings",
+    "detail": "Local volume, mute, capture interlock, save and UI implemented; Host projection, pairing and reconnect still missing. Dedicated storage not installed."
+  },
+  {
+    "id": "S8",
+    "producer": "DSH Settings UI",
+    "consumer": "Wake Service",
+    "data": "enroll / calibrate / delete",
+    "status": "proposed-producer-consumer-missing",
+    "scope": "dual-client settings",
+    "detail": "See settings-ui.md; planned UI and configuration consumers, no runtime acceptance."
+  },
+  {
+    "id": "S9",
+    "producer": "Device Config",
+    "consumer": "AudioEngine",
+    "data": "volume / capture interlock",
+    "status": "firmware-built-hardware-unverified",
+    "scope": "device settings",
+    "detail": "See device-settings.md. Actual source tested with fake SDK and ESP32-S3 linked; no hardware write or installed dedicated partition."
+  },
+  {
+    "id": "S10",
+    "producer": "AudioEngine",
+    "consumer": "CoreS3 codec",
+    "data": "volume apply / error",
+    "status": "firmware-built-hardware-unverified",
+    "scope": "device settings",
+    "detail": "See device-settings.md. Actual source tested with fake SDK and ESP32-S3 linked; no hardware write or installed dedicated partition."
+  },
+  {
+    "id": "S11",
+    "producer": "Device Config",
+    "consumer": "Dedicated NVS",
+    "data": "record / commit",
+    "status": "firmware-built-hardware-unverified",
+    "scope": "device settings",
+    "detail": "See device-settings.md. Actual source tested with fake SDK and ESP32-S3 linked; no hardware write or installed dedicated partition."
+  },
+  {
+    "id": "S12",
+    "producer": "StorageGuard",
+    "consumer": "Dedicated NVS",
+    "data": "pointer / range / namespace",
+    "status": "firmware-built-hardware-unverified",
+    "scope": "device settings",
+    "detail": "See device-settings.md. Actual source tested with fake SDK and ESP32-S3 linked; no hardware write or installed dedicated partition."
+  },
+  {
+    "id": "S13",
+    "producer": "Dedicated NVS",
+    "consumer": "Device Config",
+    "data": "load / readback / failure",
+    "status": "firmware-built-hardware-unverified",
+    "scope": "device settings",
+    "detail": "See device-settings.md. Actual source tested with fake SDK and ESP32-S3 linked; no hardware write or installed dedicated partition."
+  },
+  {
+    "id": "Q1",
+    "producer": "Independent app_main",
+    "consumer": "AgentPairingStore",
+    "data": "load private partition",
+    "status": "firmware-built-hardware-unverified",
+    "scope": "independent Agent pairing; no live device connection"
+  },
+  {
+    "id": "Q2",
+    "producer": "AgentPairingStore",
+    "consumer": "Dedicated NVS",
+    "data": "slots / active / tombstone",
+    "status": "firmware-built-hardware-unverified",
+    "scope": "independent Agent pairing; no live device connection",
+    "detail": "v8 USB worker consumes one physical authorization window and invokes actual store writes; target ELF retains paths. Host and pipe tests only; no hardware operation."
+  },
+  {
+    "id": "Q3",
+    "producer": "AgentPairingStore",
+    "consumer": "Device Pairing UI",
+    "data": "redacted state / storage error",
+    "status": "firmware-built-hardware-unverified",
+    "scope": "independent Agent pairing; no live device connection"
+  },
+  {
+    "id": "Q4",
+    "producer": "USB maintenance",
+    "consumer": "AgentPairingStore",
+    "data": "physical authorization / CAS",
+    "status": "firmware-built-hardware-unverified",
+    "scope": "independent Agent pairing; no live device connection",
+    "detail": "v8 USB worker consumes one physical authorization window and invokes actual store writes; target ELF retains paths. Host and pipe tests only; no hardware operation."
+  },
+  {
+    "id": "Q5",
+    "producer": "AgentPairingStore",
+    "consumer": "Authenticated transport",
+    "data": "credentials / identity fence",
+    "status": "core-implemented-runtime-unverified",
+    "scope": "agent-transport.md; actual ESP worker/main wired, SDK seam tested; hardware/TLS radio unverified"
+  },
+  {
+    "id": "Q6",
+    "producer": "Device Pairing UI",
+    "consumer": "PairingMaintenance",
+    "data": "Idle guard / 120 s window",
+    "status": "firmware-built-hardware-unverified",
+    "scope": "independent USB pairing; no live device connection"
+  },
+  {
+    "id": "Q7",
+    "producer": "PairingMaintenance",
+    "consumer": "Device Pairing UI",
+    "data": "redacted snapshot / result",
+    "status": "firmware-built-hardware-unverified",
+    "scope": "independent USB pairing; no live device connection"
+  },
+  {
+    "id": "Q8",
+    "producer": "Mac USB client",
+    "consumer": "USB worker",
+    "data": "SIONA1 / identity / nonce",
+    "status": "host-code-tested-device-unverified",
+    "scope": "independent USB pairing; no live device connection"
+  },
+  {
+    "id": "Q9",
+    "producer": "USB worker",
+    "consumer": "Mac USB client",
+    "data": "request ID / verified state",
+    "status": "host-code-tested-device-unverified",
+    "scope": "independent USB pairing; no live device connection"
+  },
+  {
+    "id": "Q10",
+    "producer": "PairingMaintenance",
+    "consumer": "Lifecycle Home drain",
+    "data": "busy / pending / timeout",
+    "status": "firmware-built-hardware-unverified",
+    "scope": "independent USB pairing; no live device connection"
+  },
+  {
+    "id": "Q11",
+    "producer": "PairingMaintenance",
+    "consumer": "Device settings save",
+    "data": "reserved rejects save",
+    "status": "firmware-built-hardware-unverified",
+    "scope": "independent USB pairing; no live device connection"
+  },
+  {
+    "id": "Q12",
+    "producer": "Host Pairing",
+    "consumer": "Python Journal",
+    "data": "bounded JSON / action",
+    "status": "host-code-tested-device-unverified",
+    "scope": "Host pairing journal; see host-pairing.md; no live serial"
+  },
+  {
+    "id": "Q13",
+    "producer": "Python Journal",
+    "consumer": "Identity generator",
+    "data": "immutable private bundle",
+    "status": "host-code-tested-device-unverified",
+    "scope": "Host pairing journal; see host-pairing.md; no live serial"
+  },
+  {
+    "id": "Q14",
+    "producer": "Python Journal",
+    "consumer": "Private filesystem",
+    "data": "flock / intent / fsync",
+    "status": "host-code-tested-device-unverified",
+    "scope": "Host pairing journal; see host-pairing.md; no live serial"
+  },
+  {
+    "id": "Q15",
+    "producer": "Python Journal",
+    "consumer": "Mac USB client",
+    "data": "single perform / identity",
+    "status": "host-code-tested-device-unverified",
+    "scope": "Host pairing journal; see host-pairing.md; no live serial"
+  },
+  {
+    "id": "Q16",
+    "producer": "Python Journal",
+    "consumer": "Host Pairing",
+    "data": "redacted state / uncertainty",
+    "status": "host-code-tested-device-unverified",
+    "scope": "Host pairing journal; see host-pairing.md; no live serial"
+  },
+  {
+    "id": "Q17",
+    "producer": "DSH Client Remote",
+    "consumer": "Host Pairing",
+    "data": "owner pairing actions",
+    "status": "host-code-tested-device-unverified",
+    "scope": "Host pairing journal; see host-pairing.md; no live serial",
+    "detail": "Generated descriptors, actual Gateway owner fence and Client namespace tested with local carrier; no user instance or real USB."
+  },
+  {
+    "id": "Q18",
+    "producer": "Cordis lifecycle",
+    "consumer": "Host helper",
+    "data": "abort / process exit",
+    "status": "host-code-tested-device-unverified",
+    "scope": "Host pairing journal; see host-pairing.md; no live serial"
+  },
+  {
+    "id": "Q19",
+    "producer": "Pairing page",
+    "consumer": "PairingController",
+    "data": "draft / explicit action",
+    "status": "host-code-tested-device-unverified",
+    "scope": "manual pairing UI; source and acceptance in host-pairing.md"
+  },
+  {
+    "id": "Q20",
+    "producer": "PairingController",
+    "consumer": "Client Remote",
+    "data": "maintenance / diagnostics / signal",
+    "status": "host-code-tested-device-unverified",
+    "scope": "manual pairing UI; source and acceptance in host-pairing.md"
+  },
+  {
+    "id": "Q21",
+    "producer": "DSH Gateway",
+    "consumer": "PairingRemote",
+    "data": "validated args / principal",
+    "status": "host-code-tested-device-unverified",
+    "scope": "manual pairing UI; source and acceptance in host-pairing.md"
+  },
+  {
+    "id": "Q22",
+    "producer": "Generated descriptors",
+    "consumer": "Gateway / Client",
+    "data": "typed codec / endpoint",
+    "status": "host-code-tested-device-unverified",
+    "scope": "manual pairing UI; source and acceptance in host-pairing.md"
+  },
+  {
+    "id": "Q23",
+    "producer": "PairingController",
+    "consumer": "Pairing page",
+    "data": "redacted state / fixed copy",
+    "status": "host-code-tested-device-unverified",
+    "scope": "manual pairing UI; source and acceptance in host-pairing.md"
+  },
+  {
+    "id": "Q24",
+    "producer": "Client lifecycle",
+    "consumer": "Controller / Remote",
+    "data": "cancel / unmount",
+    "status": "host-code-tested-device-unverified",
+    "scope": "manual pairing UI; source and acceptance in host-pairing.md"
+  },
+  {
+    "id": "Q25",
+    "producer": "PairingRemote",
+    "consumer": "Host Pairing",
+    "data": "owner diagnostic request",
+    "status": "host-code-tested-device-unverified",
+    "scope": "Explicit read-only diagnostics; host-pairing.md; no serial open or identity inference"
+  },
+  {
+    "id": "Q26",
+    "producer": "Host Pairing",
+    "consumer": "Environment helper",
+    "data": "fixed args / abort / exit",
+    "status": "host-code-tested-device-unverified",
+    "scope": "Explicit read-only diagnostics; host-pairing.md; no serial open or identity inference"
+  },
+  {
+    "id": "Q27",
+    "producer": "Environment helper",
+    "consumer": "Python / OpenSSL",
+    "data": "runtime / version availability",
+    "status": "host-code-tested-device-unverified",
+    "scope": "Explicit read-only diagnostics; host-pairing.md; no serial open or identity inference"
+  },
+  {
+    "id": "Q28",
+    "producer": "Environment helper",
+    "consumer": "OS metadata",
+    "data": "directory stat / USB inventory",
+    "status": "host-code-tested-device-unverified",
+    "scope": "Explicit read-only diagnostics; host-pairing.md; no serial open or identity inference"
+  },
+  {
+    "id": "Q29",
+    "producer": "Environment helper",
+    "consumer": "Host Pairing",
+    "data": "bounded diagnostic report",
+    "status": "host-code-tested-device-unverified",
+    "scope": "Explicit read-only diagnostics; host-pairing.md; no serial open or identity inference"
+  },
+  {
+    "id": "Q30",
+    "producer": "PairingRemote",
+    "consumer": "ManagedPairing",
+    "data": "owner prepareRuntime / signal",
+    "status": "host-code-tested-device-unverified",
+    "scope": "Per-profile offline setup; runtime-installation.md; no user profile or serial open"
+  },
+  {
+    "id": "Q31",
+    "producer": "ProfileContext / HostConfig",
+    "consumer": "ManagedPairing",
+    "data": "profile / Python / device permission",
+    "status": "host-code-tested-device-unverified",
+    "scope": "Per-profile offline setup; runtime-installation.md; no user profile or serial open"
+  },
+  {
+    "id": "Q32",
+    "producer": "ManagedPairing",
+    "consumer": "RuntimeSetup",
+    "data": "active / prepare / dispose",
+    "status": "host-code-tested-device-unverified",
+    "scope": "Per-profile offline setup; runtime-installation.md; no user profile or serial open"
+  },
+  {
+    "id": "Q33",
+    "producer": "RuntimeSetup",
+    "consumer": "Python Setup",
+    "data": "fixed args / cancellation / exit",
+    "status": "host-code-tested-device-unverified",
+    "scope": "Per-profile offline setup; runtime-installation.md; no user profile or serial open"
+  },
+  {
+    "id": "Q34",
+    "producer": "Python Setup",
+    "consumer": "venv / pip",
+    "data": "offline wheel / isolation / verify",
+    "status": "host-code-tested-device-unverified",
+    "scope": "Per-profile offline setup; runtime-installation.md; no user profile or serial open"
+  },
+  {
+    "id": "Q35",
+    "producer": "Python Setup",
+    "consumer": "Runtime Store",
+    "data": "flock / immutable env / active",
+    "status": "host-code-tested-device-unverified",
+    "scope": "Per-profile offline setup; runtime-installation.md; no user profile or serial open"
+  },
+  {
+    "id": "Q36",
+    "producer": "Runtime Store",
+    "consumer": "ManagedPairing",
+    "data": "validated generation via Setup",
+    "status": "host-code-tested-device-unverified",
+    "scope": "Per-profile offline setup; runtime-installation.md; no user profile or serial open"
+  },
+  {
+    "id": "Q37",
+    "producer": "ManagedPairing",
+    "consumer": "PairingHost",
+    "data": "selected Python / pairing directory",
+    "status": "host-code-tested-device-unverified",
+    "scope": "Per-profile offline setup; runtime-installation.md; no user profile or serial open"
+  },
+  {
+    "id": "Q38",
+    "producer": "Bundled wheel",
+    "consumer": "Python Setup",
+    "data": "pinned hash / requirements / license",
+    "status": "host-code-tested-device-unverified",
+    "scope": "Per-profile offline setup; runtime-installation.md; no user profile or serial open"
+  },
+  {
+    "id": "Q39",
+    "producer": "Package bundle",
+    "consumer": "DSH Loader",
+    "data": "manifest / patch / Host",
+    "status": "host-code-tested-device-unverified",
+    "scope": "Native tarball Host loading; settings-ui.md; actual desktop Client unverified"
+  },
+  {
+    "id": "Q40",
+    "producer": "DSH Loader",
+    "consumer": "Typert Loader",
+    "data": "entry activation / disposal",
+    "status": "host-code-tested-device-unverified",
+    "scope": "Native tarball Host loading; settings-ui.md; actual desktop Client unverified"
+  },
+  {
+    "id": "Q41",
+    "producer": "Typert Loader",
+    "consumer": "Registry / Gateway",
+    "data": "descriptor / withdraw",
+    "status": "host-code-tested-device-unverified",
+    "scope": "Native tarball Host loading; settings-ui.md; actual desktop Client unverified"
+  },
+  {
+    "id": "T1",
+    "producer": "Private pairing bundle",
+    "consumer": "Agent listener",
+    "data": "cert / token / endpoint",
+    "status": "host-code-tested-device-unverified",
+    "scope": "voice-runtime.md; isolated Host and TLS tests; user profile and hardware unverified",
+    "detail": "Active identity lease, listener, LocalVoice and saved preferences now connected; model setup UI and user deployment remain incomplete."
+  },
+  {
+    "id": "T2",
+    "producer": "Device WSS peer",
+    "consumer": "Agent listener",
+    "data": "TLS / upgrade / hello",
+    "status": "core-implemented-runtime-unverified",
+    "scope": "agent-transport.md; actual ESP worker/main wired, SDK seam tested; hardware/TLS radio unverified"
+  },
+  {
+    "id": "T3",
+    "producer": "Agent protocol",
+    "consumer": "Agent connection",
+    "data": "control / PCM codec",
+    "status": "host-code-tested-device-unverified",
+    "scope": "agent-transport.md; real loopback TLS tested; device/voice composition absent"
+  },
+  {
+    "id": "T4",
+    "producer": "Agent connection",
+    "consumer": "Local voice",
+    "data": "capture / disconnect",
+    "status": "core-implemented-runtime-unverified",
+    "scope": "local voice composition / host and hardware unverified",
+    "detail": "LocalVoice composition tested; production Host/settings and real device not connected."
+  },
+  {
+    "id": "T5",
+    "producer": "Local voice",
+    "consumer": "Agent connection",
+    "data": "start / output / stop",
+    "status": "core-implemented-runtime-unverified",
+    "scope": "local voice composition / host and hardware unverified",
+    "detail": "LocalVoice composition tested; production Host/settings and real device not connected."
+  },
+  {
+    "id": "T6",
+    "producer": "Device lifecycle",
+    "consumer": "Agent connection",
+    "data": "start / idle / accepted",
+    "status": "core-implemented-runtime-unverified",
+    "scope": "agent-transport.md; actual ESP worker/main wired, SDK seam tested; hardware/TLS radio unverified"
+  },
+  {
+    "id": "T7",
+    "producer": "Agent connection",
+    "consumer": "Device owner",
+    "data": "lease / control / PCM",
+    "status": "core-implemented-runtime-unverified",
+    "scope": "agent-transport.md; actual ESP worker/main wired, SDK seam tested; hardware/TLS radio unverified"
+  },
+  {
+    "id": "T8",
+    "producer": "DSH Host composition",
+    "consumer": "Agent listener",
+    "data": "explicit start / shutdown; identity lease",
+    "status": "host-code-tested-device-unverified",
+    "scope": "voice-runtime.md; isolated Host and TLS tests; user profile and hardware unverified",
+    "detail": "Active identity lease, listener, LocalVoice and saved preferences now connected; model setup UI and user deployment remain incomplete."
+  },
+  {
+    "id": "T9",
+    "producer": "ESP network task",
+    "consumer": "AgentSession",
+    "data": "authenticated / owner queue",
+    "status": "core-implemented-runtime-unverified",
+    "scope": "agent-transport.md; actual ESP worker/main wired, SDK seam tested; hardware/TLS radio unverified"
+  },
+  {
+    "id": "T10",
+    "producer": "AgentSession",
+    "consumer": "Lifecycle / AudioEngine",
+    "data": "begin / renew / stop / PCM",
+    "status": "host-code-tested-device-unverified",
+    "scope": "agent-transport.md; real C++ core + Mac TLS carrier; ESP/main wired, physical codec/network unverified"
+  },
+  {
+    "id": "T11",
+    "producer": "AudioEngine",
+    "consumer": "AgentSession",
+    "data": "input / written / errors",
+    "status": "host-code-tested-device-unverified",
+    "scope": "agent-transport.md; real C++ core + Mac TLS carrier; ESP/main wired, physical codec/network unverified"
+  },
+  {
+    "id": "T12",
+    "producer": "PairingMaintenance",
+    "consumer": "AgentSession",
+    "data": "identity / reserved",
+    "status": "host-code-tested-device-unverified",
+    "scope": "agent-transport.md; real C++ core + Mac TLS carrier; ESP/main wired, physical codec/network unverified"
+  },
+  {
+    "id": "T13",
+    "producer": "AgentSession",
+    "consumer": "ESP network queue",
+    "data": "receipts / PCM / close",
+    "status": "core-implemented-runtime-unverified",
+    "scope": "agent-transport.md; actual ESP worker/main wired, SDK seam tested; hardware/TLS radio unverified"
+  },
+  {
+    "id": "T14",
+    "producer": "Device UI owner",
+    "consumer": "AgentSession",
+    "data": "local stop / Home",
+    "status": "core-implemented-runtime-unverified",
+    "scope": "agent-transport.md; actual ESP worker/main wired, SDK seam tested; hardware/TLS radio unverified"
+  },
+  {
+    "id": "T15",
+    "producer": "Device UI owner",
+    "consumer": "ESP network task",
+    "data": "explicit start / close",
+    "status": "core-implemented-runtime-unverified",
+    "scope": "agent-transport.md; actual worker SDK seam tested; physical radio/teardown unverified"
+  },
+  {
+    "id": "T16",
+    "producer": "PairingMaintenance",
+    "consumer": "ESP network task",
+    "data": "private read / ticket",
+    "status": "core-implemented-runtime-unverified",
+    "scope": "agent-transport.md; actual worker SDK seam tested; physical radio/teardown unverified"
+  },
+  {
+    "id": "T17",
+    "producer": "Factory Wi-Fi NVS",
+    "consumer": "ESP network task",
+    "data": "read-only saved profile",
+    "status": "core-implemented-runtime-unverified",
+    "scope": "agent-transport.md; actual worker SDK seam tested; physical radio/teardown unverified"
+  },
+  {
+    "id": "T18",
+    "producer": "ESP WSS callbacks",
+    "consumer": "Network mailbox",
+    "data": "bounded fragments / generation",
+    "status": "core-implemented-runtime-unverified",
+    "scope": "agent-transport.md; actual worker SDK seam tested; physical radio/teardown unverified"
+  },
+  {
+    "id": "T19",
+    "producer": "ESP network task",
+    "consumer": "Device lifecycle",
+    "data": "cleanup / Finished / failure",
+    "status": "core-implemented-runtime-unverified",
+    "scope": "agent-transport.md; actual worker SDK seam tested; physical radio/teardown unverified"
+  },
+  {
+    "id": "T20",
+    "producer": "SNTP service",
+    "consumer": "ESP network task",
+    "data": "sync result / TLS time gate",
+    "status": "core-implemented-runtime-unverified",
+    "scope": "agent-transport.md; SDK seam tested, real Wi-Fi and time service unverified"
+  },
+  {
+    "id": "T21",
+    "producer": "ESP Wi-Fi callbacks",
+    "consumer": "ESP network task",
+    "data": "IP acquired / disconnect",
+    "status": "core-implemented-runtime-unverified",
+    "scope": "agent-transport.md; SDK seam tested, real Wi-Fi and time service unverified"
+  },
+  {
+    "id": "L1",
+    "producer": "Asset manifest",
+    "consumer": "Asset installer",
+    "status": "host-code-tested-device-unverified",
+    "data": "pinned bytes/hash; private install",
+    "scope": "local speech / partial integration",
+    "detail": "prepare_voice.install; receipt removed before revalidation"
+  },
+  {
+    "id": "L2",
+    "producer": "Device audio / VAD",
+    "consumer": "Local speech",
+    "status": "core-implemented-runtime-unverified",
+    "data": "mono PCM; bounded utterance",
+    "scope": "local voice composition / host and hardware unverified",
+    "detail": "LocalVoice connects the producer and consumer; synthetic model and TLS tests are separate; production profile and hardware unverified."
+  },
+  {
+    "id": "L3",
+    "producer": "Local speech",
+    "consumer": "whisper.cpp",
+    "status": "host-code-tested-device-unverified",
+    "data": "warmup / WAV / result / exit",
+    "scope": "local speech / partial integration",
+    "detail": "WhisperBackend warms managed worker v1 and owns one private pipe per voice lease; legacy CLI returns ephemeral JSON."
+  },
+  {
+    "id": "L4",
+    "producer": "whisper.cpp / Local speech",
+    "consumer": "VoiceBridge",
+    "status": "core-implemented-runtime-unverified",
+    "data": "final transcript",
+    "scope": "local voice composition / host and hardware unverified",
+    "detail": "LocalVoice connects the producer and consumer; synthetic model and TLS tests are separate; production profile and hardware unverified."
+  },
+  {
+    "id": "L5",
+    "producer": "VoiceBridge",
+    "consumer": "Kokoro worker",
+    "status": "core-implemented-runtime-unverified",
+    "data": "text / voice / speech rate",
+    "scope": "local voice composition / host and hardware unverified",
+    "detail": "LocalVoice connects the producer and consumer; synthetic model and TLS tests are separate; production profile and hardware unverified."
+  },
+  {
+    "id": "L6",
+    "producer": "Kokoro worker",
+    "consumer": "Device output",
+    "status": "core-implemented-runtime-unverified",
+    "data": "bounded PCM; generation done",
+    "scope": "local voice composition / host and hardware unverified",
+    "detail": "LocalVoice connects the producer and consumer; synthetic model and TLS tests are separate; production profile and hardware unverified."
+  },
+  {
+    "id": "L7",
+    "producer": "Stop / plugin lifetime",
+    "consumer": "Speech workers",
+    "status": "host-code-tested-device-unverified",
+    "data": "abort / dispose; await exit",
+    "scope": "voice-runtime.md; isolated Host and TLS tests; user profile and hardware unverified",
+    "detail": "Active identity lease, listener, LocalVoice and saved preferences now connected; model setup UI and user deployment remain incomplete."
+  },
+  {
+    "id": "T22",
+    "producer": "Mac AgentConnection",
+    "consumer": "AgentSession",
+    "status": "host-code-tested-device-unverified",
+    "data": "fence v1 / request / boundary",
+    "scope": "playback fence / hardware unverified"
+  },
+  {
+    "id": "T23",
+    "producer": "AgentSession",
+    "consumer": "AudioEngine",
+    "status": "host-code-tested-device-unverified",
+    "data": "Request / status / retired credits",
+    "scope": "playback fence / hardware unverified"
+  },
+  {
+    "id": "T24",
+    "producer": "AudioEngine worker",
+    "consumer": "CoreS3 codec",
+    "status": "host-code-tested-device-unverified",
+    "data": "mute / fence / actual exit",
+    "scope": "playback fence / hardware unverified"
+  },
+  {
+    "id": "T25",
+    "producer": "I2S TX ISR",
+    "consumer": "CoreS3 fence",
+    "status": "host-code-tested-device-unverified",
+    "data": "sent bytes / fault latch",
+    "scope": "playback fence / hardware unverified"
+  },
+  {
+    "id": "T26",
+    "producer": "AgentSession",
+    "consumer": "Mac AgentConnection",
+    "status": "host-code-tested-device-unverified",
+    "data": "drained / interrupted boundary",
+    "scope": "playback fence / hardware unverified"
+  },
+  {
+    "id": "T27",
+    "producer": "VoiceBridge adapter",
+    "consumer": "AgentConnection fences",
+    "status": "proposed",
+    "data": "speak completion / interrupt",
+    "scope": "playback fence / hardware unverified"
+  },
+  {
+    "id": "L8",
+    "producer": "Audio asset manifest",
+    "consumer": "Native installer",
+    "status": "core-implemented-runtime-unverified",
+    "data": "pinned source / model / build",
+    "scope": "local audio / synthetic passed / hardware unverified"
+  },
+  {
+    "id": "L9",
+    "producer": "AgentConnection input",
+    "consumer": "LocalAudioFrontend",
+    "status": "core-implemented-runtime-unverified",
+    "data": "continuous mic / reference",
+    "scope": "local voice composition / host and hardware unverified",
+    "detail": "LocalVoice composition tested; production Host/settings and real device not connected."
+  },
+  {
+    "id": "L10",
+    "producer": "LocalAudioFrontend",
+    "consumer": "Python Frontend",
+    "status": "core-implemented-runtime-unverified",
+    "data": "warm / frame / cancel / exit",
+    "scope": "local audio / synthetic passed / hardware unverified"
+  },
+  {
+    "id": "L11",
+    "producer": "Resampler / LocalVQE",
+    "consumer": "Silero / Segmenter",
+    "status": "core-implemented-runtime-unverified",
+    "data": "16k PCM / 256 to 512 blocks",
+    "scope": "local audio / synthetic passed / hardware unverified"
+  },
+  {
+    "id": "L12",
+    "producer": "Segmenter",
+    "consumer": "WhisperBackend",
+    "status": "core-implemented-runtime-unverified",
+    "data": "16k segments / ASR",
+    "scope": "local audio / synthetic passed / hardware unverified"
+  },
+  {
+    "id": "L13",
+    "producer": "VoiceBridge / Host lifetime",
+    "consumer": "LocalAudioFrontend",
+    "status": "core-implemented-runtime-unverified",
+    "data": "acquire / dispose / fail",
+    "scope": "local voice composition / host and hardware unverified",
+    "detail": "LocalVoice composition tested; production Host/settings and real device not connected."
+  },
+  {
+    "id": "L14",
+    "producer": "Settings voice setup",
+    "consumer": "Native installer",
+    "status": "proposed",
+    "data": "download / status / cancel",
+    "scope": "local audio / synthetic passed / hardware unverified"
+  },
+  {
+    "id": "L15",
+    "producer": "VoiceBridge",
+    "consumer": "LocalVoice lease",
+    "data": "activate / transcripts / release",
+    "status": "core-implemented-runtime-unverified",
+    "scope": "continuous local voice / user profile and hardware unverified"
+  },
+  {
+    "id": "L16",
+    "producer": "LocalVoice lease",
+    "consumer": "AgentConnection",
+    "data": "start / PCM / stop receipt",
+    "status": "core-implemented-runtime-unverified",
+    "scope": "continuous local voice / user profile and hardware unverified"
+  },
+  {
+    "id": "L17",
+    "producer": "LocalVoice capture",
+    "consumer": "LocalAudioFrontend",
+    "data": "serial frames / concurrent ASR",
+    "status": "core-implemented-runtime-unverified",
+    "scope": "continuous local voice / user profile and hardware unverified"
+  },
+  {
+    "id": "L18",
+    "producer": "LocalVoice ASR queue",
+    "consumer": "WhisperBackend",
+    "data": "bounded segments / cancel",
+    "status": "core-implemented-runtime-unverified",
+    "scope": "continuous local voice / user profile and hardware unverified"
+  },
+  {
+    "id": "L19",
+    "producer": "Whisper / LocalVoice",
+    "consumer": "VoiceBridge",
+    "data": "transcripts / priority Stop",
+    "status": "core-implemented-runtime-unverified",
+    "scope": "continuous local voice / user profile and hardware unverified"
+  },
+  {
+    "id": "L20",
+    "producer": "LocalVoice playback",
+    "consumer": "KokoroBackend",
+    "data": "prewarm / adopt / cancel",
+    "status": "core-implemented-runtime-unverified",
+    "scope": "continuous local voice / user profile and hardware unverified"
+  },
+  {
+    "id": "L21",
+    "producer": "Host / Settings runtime",
+    "consumer": "LocalVoice",
+    "data": "pairing / models / lifecycle",
+    "status": "host-code-tested-device-unverified",
+    "scope": "voice-runtime.md; isolated Host and TLS tests; user profile and hardware unverified",
+    "detail": "Explicit Start may warm synthesis before the first conversation; Stop or Shutdown cancels an unused worker."
+  },
+  {
+    "id": "L22",
+    "producer": "VoicePanel",
+    "consumer": "VoiceController",
+    "data": "actions / polling / dispose",
+    "status": "host-code-tested-device-unverified",
+    "scope": "voice-runtime.md; isolated runtime / no user or hardware deployment"
+  },
+  {
+    "id": "L23",
+    "producer": "VoiceController",
+    "consumer": "VoiceRemote",
+    "data": "Gateway actions / cancellation",
+    "status": "host-code-tested-device-unverified",
+    "scope": "voice-runtime.md; isolated runtime / no user or hardware deployment"
+  },
+  {
+    "id": "L24",
+    "producer": "VoiceRemote",
+    "consumer": "VoiceRuntime",
+    "data": "owner / controls / snapshot",
+    "status": "host-code-tested-device-unverified",
+    "scope": "voice-runtime.md; isolated runtime / no user or hardware deployment"
+  },
+  {
+    "id": "L25",
+    "producer": "Host preferences",
+    "consumer": "VoiceRuntime",
+    "data": "frozen snapshot / pending changes",
+    "status": "host-code-tested-device-unverified",
+    "scope": "voice-runtime.md; isolated runtime / no user or hardware deployment"
+  },
+  {
+    "id": "L26",
+    "producer": "ManagedPairing",
+    "consumer": "Identity helper",
+    "data": "profile / active journal lock",
+    "status": "host-code-tested-device-unverified",
+    "scope": "voice-runtime.md; isolated runtime / no user or hardware deployment"
+  },
+  {
+    "id": "L27",
+    "producer": "Identity lease",
+    "consumer": "VoiceRuntime",
+    "data": "private bundle / closed event",
+    "status": "host-code-tested-device-unverified",
+    "scope": "voice-runtime.md; isolated runtime / no user or hardware deployment"
+  },
+  {
+    "id": "L28",
+    "producer": "VoiceRuntime",
+    "consumer": "Transport / Voice / Bridge",
+    "data": "listen / enter / stop / dispose",
+    "status": "host-code-tested-device-unverified",
+    "scope": "voice-runtime.md; isolated runtime / no user or hardware deployment"
+  },
+  {
+    "id": "L29",
+    "producer": "Cordis lifetime",
+    "consumer": "VoiceRuntime",
+    "data": "live disable / dispose",
+    "detail": "Native installed Loader rehearsed disable during a pending DSH turn and before capture; runtime disposal precedes pairing disposal.",
+    "status": "host-code-tested-device-unverified",
+    "scope": "voice-runtime.md; isolated runtime / no user or hardware deployment"
+  },
+  {
+    "id": "L30",
+    "producer": "Settings VoiceController",
+    "consumer": "VoiceRemote",
+    "data": "inspect / verify / cancel",
+    "status": "host-code-tested-device-unverified",
+    "scope": "voice-environment.md; local synthetic models / no user or hardware deployment"
+  },
+  {
+    "id": "L31",
+    "producer": "VoiceRuntime",
+    "consumer": "VoiceEnvironment",
+    "data": "fresh check / exclusive self-test",
+    "status": "host-code-tested-device-unverified",
+    "scope": "voice-environment.md; local synthetic models / no user or hardware deployment"
+  },
+  {
+    "id": "L32",
+    "producer": "Asset / dependency manifests",
+    "consumer": "VoiceEnvironment",
+    "data": "sizes / hashes / pinned versions",
+    "status": "host-code-tested-device-unverified",
+    "scope": "voice-environment.md; local synthetic models / no user or hardware deployment"
+  },
+  {
+    "id": "L33",
+    "producer": "VoiceEnvironment",
+    "consumer": "Python metadata",
+    "data": "bounded probe / cancel / wait exit",
+    "status": "host-code-tested-device-unverified",
+    "scope": "voice-environment.md; local synthetic models / no user or hardware deployment"
+  },
+  {
+    "id": "L34",
+    "producer": "VoiceEnvironment",
+    "consumer": "Private filesystem",
+    "data": "read hashes / receipts / permissions",
+    "status": "host-code-tested-device-unverified",
+    "scope": "voice-environment.md; local synthetic models / no user or hardware deployment"
+  },
+  {
+    "id": "L35",
+    "producer": "VoiceEnvironment",
+    "consumer": "Local backends",
+    "data": "synthetic self-test / cleanup",
+    "status": "host-code-tested-device-unverified",
+    "scope": "voice-environment.md; local synthetic models / no user or hardware deployment"
+  },
+  {
+    "id": "L36",
+    "producer": "VoiceEnvironment",
+    "consumer": "VoicePanel",
+    "data": "report through Runtime / Remote",
+    "status": "host-code-tested-device-unverified",
+    "scope": "voice-environment.md; local synthetic models / no user or hardware deployment"
+  },
+  {
+    "id": "L37",
+    "producer": "Settings / VoiceRemote",
+    "consumer": "VoiceRuntime",
+    "data": "owner check / install / cancel",
+    "status": "host-code-tested-device-unverified",
+    "scope": "voice-installation.md; isolated profile / no user or hardware deployment"
+  },
+  {
+    "id": "L38",
+    "producer": "VoiceRuntime",
+    "consumer": "VoiceInstallation",
+    "data": "profile / exclusivity / lifetime",
+    "status": "host-code-tested-device-unverified",
+    "scope": "voice-installation.md; isolated profile / no user or hardware deployment"
+  },
+  {
+    "id": "L39",
+    "producer": "VoiceInstallation",
+    "consumer": "Python helper",
+    "data": "stage / candidate / commit / exit",
+    "status": "host-code-tested-device-unverified",
+    "scope": "voice-installation.md; isolated profile / no user or hardware deployment"
+  },
+  {
+    "id": "L40",
+    "producer": "Fixed manifests",
+    "consumer": "pip / downloader / CMake",
+    "data": "hash / CA / licenses / build",
+    "status": "host-code-tested-device-unverified",
+    "scope": "voice-installation.md; isolated profile / no user or hardware deployment"
+  },
+  {
+    "id": "L41",
+    "producer": "Python builder",
+    "consumer": "Private candidate",
+    "data": "flock / files / receipt / logs",
+    "status": "host-code-tested-device-unverified",
+    "scope": "voice-installation.md; isolated profile / no user or hardware deployment"
+  },
+  {
+    "id": "L42",
+    "producer": "VoiceInstallation",
+    "consumer": "VoiceEnvironment",
+    "data": "real self-test / cancellation",
+    "status": "host-code-tested-device-unverified",
+    "scope": "voice-installation.md; isolated profile / no user or hardware deployment"
+  },
+  {
+    "id": "L43",
+    "producer": "Python helper",
+    "consumer": "Active record",
+    "data": "publish worker pointer / fsync",
+    "status": "host-code-tested-device-unverified",
+    "scope": "voice-installation.md; isolated profile / no user or hardware deployment"
+  },
+  {
+    "id": "L44",
+    "producer": "Active installation",
+    "consumer": "VoiceRuntime",
+    "data": "worker or legacy / frozen paths",
+    "status": "host-code-tested-device-unverified",
+    "scope": "voice-installation.md; isolated profile / no user or hardware deployment"
+  },
+  {
+    "id": "L45",
+    "producer": "Installation snapshot",
+    "consumer": "VoicePanel",
+    "data": "progress / prerequisites / polling",
+    "status": "host-code-tested-device-unverified",
+    "scope": "voice-installation.md; isolated profile / no user or hardware deployment"
+  },
+  {
+    "id": "L46",
+    "producer": "KokoroBackend / worker",
+    "consumer": "Private phoneme directory",
+    "data": "short data path / wait exit / remove",
+    "status": "host-code-tested-device-unverified",
+    "scope": "local-speech.md; real long-path candidate / no device"
+  },
+  {
+    "id": "L47",
+    "producer": "VoiceInstallation",
+    "consumer": "Base programs",
+    "data": "fixed probes / cancel / redaction",
+    "status": "host-code-tested-device-unverified",
+    "scope": "voice-installation.md; Python / xcode-select / xcrun; no model or device access"
+  },
+  {
+    "id": "C1",
+    "producer": "DSH Agent",
+    "consumer": "Native tool pipeline",
+    "data": "schema / policy / cancellation",
+    "status": "host-code-tested-device-unverified",
+    "scope": "device-capabilities.md; native tools / TLS / C++ / no user or hardware acceptance"
+  },
+  {
+    "id": "C2",
+    "producer": "Capability tool",
+    "consumer": "VoiceRuntime",
+    "data": "calling session / frozen binding",
+    "status": "host-code-tested-device-unverified",
+    "scope": "device-capabilities.md; native tools / TLS / C++ / no user or hardware acceptance"
+  },
+  {
+    "id": "C3",
+    "producer": "VoiceRuntime",
+    "consumer": "AgentConnection",
+    "data": "active lease / expression request",
+    "status": "host-code-tested-device-unverified",
+    "scope": "device-capabilities.md; native tools / TLS / C++ / no user or hardware acceptance"
+  },
+  {
+    "id": "C4",
+    "producer": "AgentConnection",
+    "consumer": "AgentSession",
+    "data": "versioned authenticated command",
+    "status": "host-code-tested-device-unverified",
+    "scope": "device-capabilities.md; native tools / TLS / C++ / no user or hardware acceptance"
+  },
+  {
+    "id": "C5",
+    "producer": "AgentSession",
+    "consumer": "DeviceExpression",
+    "data": "visible Avatar / official Emotion",
+    "status": "host-code-tested-device-unverified",
+    "scope": "device-capabilities.md; native tools / TLS / C++ / no user or hardware acceptance"
+  },
+  {
+    "id": "C6",
+    "producer": "AgentSession",
+    "consumer": "DSH tool result",
+    "data": "matched reply through Host pipeline",
+    "status": "host-code-tested-device-unverified",
+    "scope": "device-capabilities.md; native tools / TLS / C++ / no user or hardware acceptance"
+  },
+  {
+    "id": "C7",
+    "producer": "Session termination",
+    "consumer": "Avatar",
+    "data": "neutral on Stop / disconnect / Home",
+    "status": "host-code-tested-device-unverified",
+    "scope": "device-capabilities.md; native tools / TLS / C++ / no user or hardware acceptance"
+  },
+  {
+    "id": "C8",
+    "producer": "Device UI lifecycle",
+    "consumer": "Avatar",
+    "data": "explicit page / child-first deletion",
+    "status": "host-code-tested-device-unverified",
+    "scope": "device-capabilities.md; native tools / TLS / C++ / no user or hardware acceptance"
+  },
+  {
+    "id": "G1",
+    "producer": "Official board",
+    "consumer": "AgentDisplay",
+    "data": "LCD geometry / SPI handles",
+    "status": "host-code-tested-device-unverified",
+    "scope": "independent display adapter; SDK seam and target build passed, hardware unverified"
+  },
+  {
+    "id": "G2",
+    "producer": "AgentDisplay",
+    "consumer": "Official LVGL port",
+    "data": "checked init / display / lock / teardown",
+    "status": "host-code-tested-device-unverified",
+    "scope": "independent display adapter; SDK seam and target build passed, hardware unverified"
+  },
+  {
+    "id": "G3",
+    "producer": "HAL touch bridge",
+    "consumer": "AgentDisplay",
+    "data": "same typed display handle / mutex",
+    "status": "host-code-tested-device-unverified",
+    "scope": "independent display adapter; SDK seam and target build passed, hardware unverified"
+  },
+  {
+    "id": "G4",
+    "producer": "AgentDisplay",
+    "consumer": "LVGL theme / font",
+    "data": "default Latin + upstream glyph fallback",
+    "status": "host-code-tested-device-unverified",
+    "scope": "independent display adapter; SDK seam and target build passed, hardware unverified"
+  },
+  {
+    "id": "G5",
+    "producer": "Application UI / Avatar",
+    "consumer": "Official LVGL port",
+    "data": "existing pages / expression on one display",
+    "status": "host-code-tested-device-unverified",
+    "scope": "independent display adapter; SDK seam and target build passed, hardware unverified"
+  },
+  {
+    "id": "K1",
+    "producer": "Saved backups + receipt",
+    "consumer": "Capacity review",
+    "data": "same bytes / hash / original partitions",
+    "status": "host-code-tested-device-unverified",
+    "scope": "offline saved backup review; no device access or installation authority"
+  },
+  {
+    "id": "K2",
+    "producer": "Candidate + build receipt",
+    "consumer": "Capacity review",
+    "data": "size / hash / image format / version",
+    "status": "host-code-tested-device-unverified",
+    "scope": "offline saved backup review; no device access or installation authority"
+  },
+  {
+    "id": "K3",
+    "producer": "Capacity review",
+    "consumer": "JSON report",
+    "data": "alignment / config / signed capacity",
+    "status": "host-code-tested-device-unverified",
+    "scope": "offline saved backup review; no device access or installation authority"
+  },
+  {
+    "id": "K4",
+    "producer": "JSON report",
+    "consumer": "Developer",
+    "data": "fit is not installable / unresolved gates",
+    "status": "host-code-tested-device-unverified",
+    "scope": "offline saved backup review; no device access or installation authority"
+  },
+  {
+    "id": "CAM1",
+    "producer": "DevicePreferences",
+    "consumer": "CameraEngine",
+    "data": "permission / cancel ticket",
+    "status": "firmware-built-hardware-unverified",
+    "scope": "camera core host tests only; ESP driver/task, transport, DSH attachment and settings not integrated",
+    "detail": "Device camera permission wired; no automatic capture; independent of audio epoch"
+  },
+  {
+    "id": "CAM2",
+    "producer": "Camera worker",
+    "consumer": "CameraEngine",
+    "data": "single task / Pump clock",
+    "status": "firmware-built-hardware-unverified",
+    "scope": "camera core host tests only; ESP driver/task, transport, DSH attachment and settings not integrated",
+    "detail": "Actual ESP task linked; scheduler seam tested, no hardware acceptance"
+  },
+  {
+    "id": "CAM3",
+    "producer": "CameraEngine",
+    "consumer": "EspCameraPort",
+    "data": "PSRAM / Open / timed Read / Close",
+    "status": "core-implemented-runtime-unverified",
+    "scope": "actual ESP adapter in SDK seam; task and hardware not integrated"
+  },
+  {
+    "id": "CAM4",
+    "producer": "DeviceEffects",
+    "consumer": "CameraEngine",
+    "data": "Stop / Stopped / drain",
+    "status": "firmware-built-hardware-unverified",
+    "scope": "camera core host tests only; ESP driver/task, transport, DSH attachment and settings not integrated",
+    "detail": "Combined audio-camera-network-maintenance release; Home waits and faults"
+  },
+  {
+    "id": "CAM5",
+    "producer": "CameraEngine",
+    "consumer": "CameraTransfer",
+    "data": "Take / ticket / owned JPEG",
+    "status": "host-code-tested-device-unverified",
+    "scope": "camera core host tests only; ESP driver/task, transport, DSH attachment and settings not integrated",
+    "detail": "Close before transfer; local revocation invalidates final completion"
+  },
+  {
+    "id": "CAM6",
+    "producer": "Image transport",
+    "consumer": "DSH attachment / tool",
+    "data": "normalize / durable reference",
+    "status": "host-code-tested-device-unverified",
+    "scope": "Native tool / TLS / generated JPEG / actual DSH store tested; physical camera and model inference unverified"
+  },
+  {
+    "id": "CAM7",
+    "producer": "Prepared Board",
+    "consumer": "EspCameraPort",
+    "data": "DVP pins / borrowed I2C / explicit init",
+    "status": "core-implemented-runtime-unverified",
+    "scope": "actual adapter SDK seam; target compilation is separate from linked consumer and hardware acceptance"
+  },
+  {
+    "id": "CAM8",
+    "producer": "EspCameraPort",
+    "consumer": "ESP video SDK",
+    "data": "YUYV frames / timeout / teardown",
+    "status": "core-implemented-runtime-unverified",
+    "scope": "actual adapter SDK seam; target compilation is separate from linked consumer and hardware acceptance"
+  },
+  {
+    "id": "CAM9",
+    "producer": "EspCameraPort",
+    "consumer": "JPEG encoder",
+    "data": "aligned raw / single task / JPEG",
+    "status": "core-implemented-runtime-unverified",
+    "scope": "actual adapter SDK seam; target compilation is separate from linked consumer and hardware acceptance"
+  },
+  {
+    "id": "CAM10",
+    "producer": "PSRAM allocator",
+    "consumer": "CameraEngine / Port",
+    "data": "aligned buffers / failure / ownership",
+    "status": "core-implemented-runtime-unverified",
+    "scope": "actual adapter SDK seam; target compilation is separate from linked consumer and hardware acceptance"
+  },
+  {
+    "id": "CAM11",
+    "producer": "AgentSession",
+    "consumer": "CameraTransfer / Engine",
+    "status": "host-code-tested-device-unverified",
+    "data": "active lease / Begin / pull",
+    "scope": "Camera command producer missing",
+    "detail": "Authenticated AgentSession command and native C++/TLS carrier tested"
+  },
+  {
+    "id": "CAM12",
+    "producer": "Host connection",
+    "consumer": "AgentSession",
+    "status": "host-code-tested-device-unverified",
+    "data": "capture / offset / request",
+    "scope": "Camera transfer; no real sensor or DSH attachment acceptance"
+  },
+  {
+    "id": "CAM13",
+    "producer": "CameraTransfer",
+    "consumer": "Network queue",
+    "status": "host-code-tested-device-unverified",
+    "data": "reserved admission / retry",
+    "scope": "Camera transfer; no real sensor or DSH attachment acceptance"
+  },
+  {
+    "id": "CAM14",
+    "producer": "Network queue / WSS",
+    "consumer": "CameraReception",
+    "status": "host-code-tested-device-unverified",
+    "data": "exact chunks / final receipt",
+    "scope": "Camera transfer; no real sensor or DSH attachment acceptance"
+  },
+  {
+    "id": "CAM15",
+    "producer": "Stop / connection owner",
+    "consumer": "CameraReception",
+    "status": "host-code-tested-device-unverified",
+    "data": "reject / release buffer",
+    "scope": "Camera transfer; no real sensor or DSH attachment acceptance"
+  },
+  {
+    "id": "CAM16",
+    "producer": "DSH Native policy",
+    "consumer": "Photo tool",
+    "data": "agent / signal / permission",
+    "status": "host-code-tested-device-unverified",
+    "scope": "Camera Host consumer; physical camera and model inference unverified"
+  },
+  {
+    "id": "CAM17",
+    "producer": "Photo tool",
+    "consumer": "VoiceRuntime",
+    "data": "session / single pending",
+    "status": "host-code-tested-device-unverified",
+    "scope": "Camera Host consumer; physical camera and model inference unverified"
+  },
+  {
+    "id": "CAM18",
+    "producer": "VoiceRuntime",
+    "consumer": "Decoder / AttachmentStore",
+    "data": "full decode / durable ref",
+    "status": "host-code-tested-device-unverified",
+    "scope": "Camera Host consumer; physical camera and model inference unverified"
+  },
+  {
+    "id": "CAM19",
+    "producer": "Photo image result",
+    "consumer": "DSH model projection",
+    "data": "image / text-only omission",
+    "status": "host-code-tested-device-unverified",
+    "scope": "Camera Host consumer; physical camera and model inference unverified"
+  },
+  {
+    "id": "CAM20",
+    "producer": "Stop / epoch / provider",
+    "consumer": "Pending image",
+    "data": "invalidate late reference",
+    "status": "host-code-tested-device-unverified",
+    "scope": "Camera Host consumer; physical camera and model inference unverified"
+  },
+  {
+    "id": "CAM21",
+    "producer": "Camera engine / transfer",
+    "consumer": "Device Camera page",
+    "data": "permission / phase / error",
+    "status": "host-code-tested-device-unverified",
+    "scope": "Camera status projection; device build and physical acceptance recorded separately"
+  },
+  {
+    "id": "CAM22",
+    "producer": "AgentSession",
+    "consumer": "Authenticated Host",
+    "data": "camera_state / heartbeat",
+    "status": "host-code-tested-device-unverified",
+    "scope": "Camera status projection; device build and physical acceptance recorded separately"
+  },
+  {
+    "id": "CAM23",
+    "producer": "AgentConnection",
+    "consumer": "VoiceRuntime",
+    "data": "epoch / freshness / unknown",
+    "status": "host-code-tested-device-unverified",
+    "scope": "Camera status projection; device build and physical acceptance recorded separately"
+  },
+  {
+    "id": "CAM24",
+    "producer": "VoiceRuntime / attachments",
+    "consumer": "VoiceRemote",
+    "data": "device / operation state",
+    "status": "host-code-tested-device-unverified",
+    "scope": "Camera status projection; device build and physical acceptance recorded separately"
+  },
+  {
+    "id": "CAM25",
+    "producer": "VoiceRemote",
+    "consumer": "VoicePanel / Controller",
+    "data": "owner view / retention copy",
+    "status": "host-code-tested-device-unverified",
+    "scope": "Camera status projection; device build and physical acceptance recorded separately"
+  },
+  {
+    "id": "MO1",
+    "producer": "Motion core test",
+    "consumer": "MotionEngine",
+    "status": "core-implemented-runtime-unverified",
+    "data": "bounded target / real thread cancellation",
+    "scope": "motion core and required production consumers",
+    "detail": "Real core with fake MotionPort; no production hardware."
+  },
+  {
+    "id": "MO2",
+    "producer": "MotionEngine",
+    "consumer": "ScsMotionPort / MotionPort",
+    "status": "core-implemented-runtime-unverified",
+    "data": "Open / Move / Poll / Release",
+    "scope": "motion core and required production consumers",
+    "detail": "ESP power/UART/SCS worker is invoked by the authenticated motion v1 request."
+  },
+  {
+    "id": "MO3",
+    "producer": "Device motion settings",
+    "consumer": "MotionEngine",
+    "status": "core-implemented-runtime-unverified",
+    "data": "local permission / persistence",
+    "scope": "motion core and required production consumers",
+    "detail": "Settings Motion applies local permission. Explicit guarded Save persists bit 3 of v3 in sion_cfg."
+  },
+  {
+    "id": "MO4",
+    "producer": "Authenticated AgentSession",
+    "consumer": "MotionEngine",
+    "status": "core-implemented-runtime-unverified",
+    "data": "lease / version / request correlation",
+    "scope": "motion core and required production consumers",
+    "detail": "On active authenticated boot/epoch, move_head starts one engine ticket; cancel_move identifies the same request."
+  },
+  {
+    "id": "MO5",
+    "producer": "Device lifecycle",
+    "consumer": "MotionEngine",
+    "status": "core-implemented-runtime-unverified",
+    "data": "Stop / Home / disconnect fence and drain",
+    "scope": "motion core and required production consumers",
+    "detail": "DeviceEffects now fences motion and waits for actual MotionEngine Stopped; UI fixture exercises delayed and failed Home."
+  },
+  {
+    "id": "MO6",
+    "producer": "MotionOutcome",
+    "consumer": "AgentConnection / VoiceRuntime",
+    "status": "core-implemented-runtime-unverified",
+    "data": "current epoch result / invalidate late result",
+    "scope": "motion core and required production consumers",
+    "detail": "Report only after both-axis feedback and release; Host validates request, epoch and final chosen DSH session."
+  },
+  {
+    "id": "MO7",
+    "producer": "DSH native motion tool",
+    "consumer": "VoiceRuntime",
+    "status": "core-implemented-runtime-unverified",
+    "data": "original permissions / chosen session",
+    "scope": "motion core and required production consumers",
+    "detail": "stackchan_move_head uses DSH native permissions, frozen session ID and current voice revision."
+  },
+  {
+    "id": "MO8",
+    "producer": "Motion status",
+    "consumer": "Device settings / DSH Remote",
+    "status": "core-implemented-runtime-unverified",
+    "data": "permission / phase / freshness",
+    "scope": "motion core and required production consumers",
+    "detail": "Panel reads local engine phase; owner Remote projects bounded motion_state with 6-second freshness. Observed position only in results."
+  },
+  {
+    "id": "MO9",
+    "producer": "ScsMotionPort",
+    "consumer": "Pinned SCS codec",
+    "status": "core-implemented-runtime-unverified",
+    "data": "checked status / endian register bytes",
+    "scope": "motion register adapter; electrical peer and platform remain unverified"
+  },
+  {
+    "id": "MO10",
+    "producer": "ServoLink",
+    "consumer": "Board calibration / UART / power",
+    "status": "core-implemented-runtime-unverified",
+    "data": "read-only calibration / ownership / Healthy",
+    "scope": "motion register adapter; electrical peer and platform remain unverified",
+    "detail": "Read-only calibration, staged UART and checked PY32 power now assembled; hardware remains unverified."
+  },
+  {
+    "id": "MO11",
+    "producer": "SCS feedback and release",
+    "consumer": "MotionEngine",
+    "status": "core-implemented-runtime-unverified",
+    "data": "fresh paired pose / checked torque-off",
+    "scope": "motion register adapter; electrical peer and platform remain unverified"
+  },
+  {
+    "id": "MO12",
+    "producer": "Wire protocol test",
+    "consumer": "ScsMotionPort",
+    "status": "core-implemented-runtime-unverified",
+    "data": "bad bytes / partial writes / cleanup faults",
+    "scope": "motion register adapter; electrical peer and platform remain unverified"
+  },
+  {
+    "id": "MO13",
+    "producer": "EspServoUart",
+    "consumer": "Factory NVS",
+    "data": "read-only servo calibration; missing values reject",
+    "status": "core-implemented-runtime-unverified",
+    "scope": "motion UART adapter; SDK fixture and target object only"
+  },
+  {
+    "id": "MO14",
+    "producer": "Pinned SCS codec",
+    "consumer": "EspServoUart / UART1 / GPIO6,7",
+    "data": "transaction deadline; checked partial cleanup",
+    "status": "core-implemented-runtime-unverified",
+    "scope": "motion UART adapter; SDK fixture and target object only"
+  },
+  {
+    "id": "MO15",
+    "producer": "EspServoUart",
+    "consumer": "Board ServoPowerStatus",
+    "data": "checked readiness; power lifetime owned externally",
+    "status": "core-implemented-runtime-unverified",
+    "scope": "motion UART adapter; SDK fixture and target object only",
+    "detail": "EspMotionPort constructs the real power/UART pair; actual SDK fixture checks ordering and power-off fallback."
+  },
+  {
+    "id": "MO16",
+    "producer": "EspServoPower",
+    "consumer": "PY32 GPIO0 / I2C device",
+    "data": "checked low/high; other bits preserved",
+    "status": "core-implemented-runtime-unverified",
+    "scope": "servo power; SDK test and target object, no production assembly"
+  },
+  {
+    "id": "MO17",
+    "producer": "Production motion owner",
+    "consumer": "EspServoPower / EspServoUart",
+    "data": "power ordering; failure and Home cleanup",
+    "status": "core-implemented-runtime-unverified",
+    "scope": "servo power; SDK test and target object, no production assembly",
+    "detail": "EspMotionPort owns staged UART, power and SCS release; loss of torque confirmation latches fault while attempting power and UART cleanup."
+  },
+  {
+    "id": "MO18",
+    "producer": "Power SDK fault test",
+    "consumer": "EspServoPower",
+    "data": "42 failure boundaries; allocation latch",
+    "status": "core-implemented-runtime-unverified",
+    "scope": "servo power; SDK test and target object, no production assembly"
+  },
+  {
+    "id": "MO19",
+    "producer": "Motion worker",
+    "consumer": "MotionEngine / EspMotionPort",
+    "data": "single Pump owner; idle has no IO",
+    "status": "core-implemented-runtime-unverified",
+    "scope": "motion production resource assembly; requests/settings missing"
+  },
+  {
+    "id": "MO20",
+    "producer": "Device app_main",
+    "consumer": "Motion worker / idle guards",
+    "data": "idle start; Save/pair/connect wait for release",
+    "status": "core-implemented-runtime-unverified",
+    "scope": "motion production resource assembly; requests/settings missing"
+  },
+  {
+    "id": "AP1",
+    "producer": "Display settings",
+    "consumer": "DevicePreferences",
+    "data": "Default or Fish preference",
+    "status": "firmware-built-hardware-unverified",
+    "scope": "device appearance"
+  },
+  {
+    "id": "AP2",
+    "producer": "DevicePreferences",
+    "consumer": "Dedicated settings NVS",
+    "data": "explicit save and load; v4/v5",
+    "status": "firmware-built-hardware-unverified",
+    "scope": "bidirectional record persistence in sion_cfg"
+  },
+  {
+    "id": "AP3",
+    "producer": "DevicePreferences",
+    "consumer": "Avatar page",
+    "data": "visible skin on page entry",
+    "status": "firmware-built-hardware-unverified",
+    "scope": "one local skin, no remote override"
+  },
+  {
+    "id": "AP4",
+    "producer": "AgentSession",
+    "consumer": "Visible Avatar",
+    "data": "leased expression or neutral reset",
+    "status": "firmware-built-hardware-unverified",
+    "scope": "authenticated expression v1; Stop/disconnect reset"
+  },
+  {
+    "id": "AP5",
+    "producer": "AudioEngine",
+    "consumer": "FishAvatar",
+    "data": "driver write count, epoch and volume",
+    "status": "firmware-built-hardware-unverified",
+    "scope": "playback indication on application task"
+  },
+  {
+    "id": "AP6",
+    "producer": "DeviceEffects",
+    "consumer": "Avatar page",
+    "data": "Home after release",
+    "status": "firmware-built-hardware-unverified",
+    "scope": "disposes the visible skin and its page"
+  },
+  {
+    "id": "TX1",
+    "producer": "Device Display setting",
+    "consumer": "AgentSession / AgentConnection",
+    "data": "Text opt-in in authenticated hello",
+    "status": "firmware-built-hardware-unverified",
+    "scope": "frozen at connection attach"
+  },
+  {
+    "id": "TX2",
+    "producer": "VoiceBridge / LocalVoice",
+    "consumer": "AgentConnection",
+    "data": "accepted transcript and owned reply",
+    "status": "host-code-tested-device-unverified",
+    "scope": "current turn and generation only; nonblocking"
+  },
+  {
+    "id": "TX3",
+    "producer": "AgentConnection",
+    "consumer": "AgentSession",
+    "data": "bounded UTF-8 caption via USB or WSS",
+    "status": "firmware-built-hardware-unverified",
+    "scope": "current boot and epoch; no retries"
+  },
+  {
+    "id": "TX4",
+    "producer": "AgentSession",
+    "consumer": "Text view",
+    "data": "one transient user / assistant pair",
+    "status": "firmware-built-hardware-unverified",
+    "scope": "latest pair only; cleared on Stop, Home and disconnect"
+  },
+  {
+    "id": "TX5",
+    "producer": "Device Sound button",
+    "consumer": "AudioEngine",
+    "data": "local speaker mute; capture stays active",
+    "status": "firmware-built-hardware-unverified",
+    "scope": "Mac still synthesizes; explicit device save"
+  },
+  {
+    "id": "TX6",
+    "producer": "Factory assets partition",
+    "consumer": "Caption font adapter",
+    "data": "read-only directory and font bytes",
+    "status": "firmware-built-hardware-unverified",
+    "scope": "exact asset size and SHA-256; PSRAM only"
+  },
+  {
+    "id": "TX7",
+    "producer": "Caption font adapter",
+    "consumer": "Text body labels",
+    "data": "verified LVGL font with Noto fallback",
+    "status": "firmware-built-hardware-unverified",
+    "scope": "body labels only; captured asset tested with native LVGL"
+  },
+  {
+    "id": "TX8",
+    "producer": "Device application task",
+    "consumer": "Caption font adapter",
+    "data": "load before connection; release after UI",
+    "status": "firmware-built-hardware-unverified",
+    "scope": "load on entry/selection, release after label disposal"
+  },
+  {
+    "id": "RR1",
+    "producer": "Relay operator",
+    "consumer": "Relay service",
+    "data": "TLS and per-role token hashes",
+    "status": "host-code-tested-device-unverified",
+    "scope": "explicit CLI configuration; loopback only tested"
+  },
+  {
+    "id": "RR2",
+    "producer": "Host and device relay clients",
+    "consumer": "Relay rendezvous",
+    "data": "verified WSS, role and room",
+    "status": "host-code-tested-device-unverified",
+    "scope": "actual Mac transport with simulated device peer"
+  },
+  {
+    "id": "RR3",
+    "producer": "Relay rendezvous",
+    "consumer": "Other member of the room",
+    "data": "bounded opaque bytes or close",
+    "status": "host-code-tested-device-unverified",
+    "scope": "one opposite peer, no destinations from the wire"
+  },
+  {
+    "id": "RR4",
+    "producer": "Paired device and Mac",
+    "consumer": "Agent byte transport",
+    "data": "independent TLS PSK and ALPN",
+    "status": "host-code-tested-device-unverified",
+    "scope": "ESP Mbed TLS via QEMU UART and real Mac TLS; no physical network validation"
+  },
+  {
+    "id": "RR5",
+    "producer": "Relayed host carrier",
+    "consumer": "AgentConnection",
+    "data": "one owner, bounded audio and Stop",
+    "status": "host-code-tested-device-unverified",
+    "scope": "production Host runtime; ESP endpoint pending"
+  },
+  {
+    "id": "RR6",
+    "producer": "Private Mac relay descriptor",
+    "consumer": "VoiceRuntime",
+    "data": "pair-bound endpoint trust and token",
+    "status": "host-code-tested-device-unverified",
+    "scope": "bounded Host-only file; frozen until restart"
+  },
+  {
+    "id": "RR7",
+    "producer": "DSH Settings / VoiceRemote",
+    "consumer": "VoiceRuntime",
+    "data": "relay choice; start, connect and stop",
+    "status": "host-code-tested-device-unverified",
+    "scope": "only redacted status; explicit dial on Connect"
+  },
+  {
+    "id": "RR8",
+    "producer": "Outer WSS receive events",
+    "consumer": "AgentRelayStream FIFO",
+    "data": "READY, preamble, bounded ciphertext",
+    "status": "core-implemented-runtime-unverified",
+    "scope": "ESP target executed in QEMU with UART replacing ESP WebSocket callbacks"
+  },
+  {
+    "id": "RR9",
+    "producer": "AgentRelayStream FIFO",
+    "consumer": "AgentPskTls BIO",
+    "data": "inner handshake and HELLO bytes",
+    "status": "core-implemented-runtime-unverified",
+    "scope": "QEMU and Mac verify mutual PSK with distinct USB and relay ALPNs"
+  },
+  {
+    "id": "RR10",
+    "producer": "Device Relay button and lease",
+    "consumer": "ESP network worker",
+    "data": "explicit connect and paired profile",
+    "status": "firmware-built-hardware-unverified",
+    "scope": "read after pairing lease; v35 USB setup writes the isolated store"
+  },
+  {
+    "id": "RR11",
+    "producer": "Private relay descriptor",
+    "consumer": "ESP Wi-Fi / verified WSS",
+    "data": "hotspot, trust, origin and role token",
+    "status": "firmware-built-hardware-unverified",
+    "scope": "bounded NVS settings read; 3xx terminates upgrade in this firmware"
+  },
+  {
+    "id": "RR12",
+    "producer": "Authenticated inner TLS worker",
+    "consumer": "Agent mailbox / AgentSession",
+    "data": "connected, framed text and PCM",
+    "status": "firmware-built-hardware-unverified",
+    "scope": "only after READY, marker and paired PSK; SDK seam for worker"
+  },
+  {
+    "id": "RR13",
+    "producer": "Stop, Home or network fault",
+    "consumer": "ESP network owner / lease",
+    "data": "cancel, cleanup, release",
+    "status": "firmware-built-hardware-unverified",
+    "scope": "retains lease until worker teardown; no automatic reconnection"
+  },
+  {
+    "id": "RR14",
+    "producer": "Local private device bundle",
+    "consumer": "Mac USB CLI",
+    "data": "role token, CA, Wi-Fi, revision",
+    "status": "host-code-tested-device-unverified",
+    "scope": "owner-only file; no credential output or automatic replay"
+  },
+  {
+    "id": "RR15",
+    "producer": "USB CLI and Allow USB",
+    "consumer": "PairingMaintenance",
+    "data": "single window and paired identity",
+    "status": "firmware-built-hardware-unverified",
+    "scope": "requires device and matching pair; old pairing protocol remains compatible"
+  },
+  {
+    "id": "RR16",
+    "producer": "PairingMaintenance",
+    "consumer": "Guarded pairing NVS",
+    "data": "relay blob; commit and readback",
+    "status": "firmware-built-hardware-unverified",
+    "scope": "only sion_cfg; clears relay before publishing a replacement pair"
+  },
+  {
+    "id": "RR17",
+    "producer": "Committed Relay settings",
+    "consumer": "USB, pairing UI, network task",
+    "data": "private network or public status",
+    "status": "firmware-built-hardware-unverified",
+    "scope": "revision returned only for relay operations; network reads credentials privately"
+  },
+  {
+    "id": "RR18",
+    "producer": "Current Mac private profile",
+    "consumer": "DSH Relay setup panel",
+    "data": "per-file state and staged revision",
+    "status": "host-code-tested-device-unverified",
+    "scope": "fixed local paths; no credentials over Remote"
+  },
+  {
+    "id": "RR19",
+    "producer": "Explicit USB inspection",
+    "consumer": "DSH Relay setup panel",
+    "data": "verified identity and Relay state",
+    "status": "host-code-tested-device-unverified",
+    "scope": "owner, selected port, same pairing journal; no passive USB access"
+  },
+  {
+    "id": "RR20",
+    "producer": "Owner and USB confirmation",
+    "consumer": "Pairing Host and Sion",
+    "data": "staged and device revisions",
+    "status": "host-code-tested-device-unverified",
+    "scope": "compare before USB write; unknown result requires read-only inspection"
+  },
+  {
+    "id": "RR21",
+    "producer": "Private local input",
+    "consumer": "Relay configuration generator",
+    "data": "endpoint, CA chain and TLS identity",
+    "status": "host-code-tested-device-unverified",
+    "scope": "trust verified with in-memory TLS; no interfaces or device access"
+  },
+  {
+    "id": "RR22",
+    "producer": "Generated Mac configuration",
+    "consumer": "DSH VoiceRuntime",
+    "data": "Host role, room, pairing ID and CA",
+    "status": "host-code-tested-device-unverified",
+    "scope": "loopback native DSH exercise; staged outside the live profile"
+  },
+  {
+    "id": "RR23",
+    "producer": "Generated Sion configuration",
+    "consumer": "USB maintenance and ESP relay",
+    "data": "device role, Wi-Fi and revision",
+    "status": "host-code-tested-device-unverified",
+    "scope": "device fixture used the generated role; hardware provisioning unverified"
+  },
+  {
+    "id": "RR24",
+    "producer": "Generated relay directory",
+    "consumer": "Relay CLI",
+    "data": "token digests and TLS files",
+    "status": "host-code-tested-device-unverified",
+    "scope": "portable service setup with separate secret roles; listening only on loopback in test"
+  }
+]

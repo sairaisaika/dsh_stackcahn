@@ -1,0 +1,41 @@
+sequenceDiagram
+    autonumber
+    participant T as AgentConnection 输入队列
+    participant O as LocalVoice
+    participant N as LocalAudioFrontend
+    participant P as Python Frontend
+    participant S as Resampler / LocalVQE / VAD
+    participant A as WhisperBackend
+    Note over T,A: V21：已通过本机进程和隔离 Host，真机声学待验收
+    O->>N: start(signal)
+    N->>P: 启动独立输入进程
+    P->>P: 校验两份库 / 模型；预热 LocalVQE 与 VAD 后重置
+    P-->>N: ready（仅运行就绪）
+    N-->>O: sampleRate / resamplerLatency
+    loop 收音帧 10 ms，每次最多一个本地工作请求
+        O->>T: 取首帧与队列中已有帧（最多 4）
+        T-->>O: 帧与缺帧代次
+        alt 缺帧代次增加
+            O->>N: 重置；丢弃上一代次未提交识别
+            N->>P: reset
+            P->>S: 清除音频状态，分句等待新的静音边界
+            P-->>N: reset 回执
+            N-->>O: 本地样本时钟归零
+        end
+        O->>N: process 或 processBatch
+        N->>P: 首序号和 1–4 帧（每帧 960 字节）
+        P->>S: 双通道重采样；每通道增加 160 样本
+        S->>S: 满 256 样本调用 LocalVQE；持续 AEC 状态
+        S->>S: 每 512 样本 VAD；缺帧后静音满 512 ms 恢复分句
+        S-->>P: 空值或结束片段
+        P-->>N: 单帧回执或同序回执数组
+        N->>N: 检查序号 / 样本边界 / 字节数
+        N-->>O: 16 kHz 片段或空值
+    end
+    O->>A: transcribe(segment, sampleRate=16000)
+    A-->>O: final 文本（声音质量单独验收）
+    Note over T,A: 旧代次识别不提交，控制消息继续使用原 Stop 回执
+    O->>N: abort / dispose
+    N->>P: SIGTERM；1 秒未退出则 SIGKILL
+    P-->>N: 实际进程 close
+    N-->>O: 完成取消；未结束片段不提交

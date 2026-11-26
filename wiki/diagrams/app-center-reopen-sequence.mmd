@@ -1,0 +1,22 @@
+sequenceDiagram
+    actor User as 用户
+    participant Catalog as 官方 HTTPS 应用目录
+    participant App as App Center 详情
+    participant Verify as ESP-IDF 镜像和启动状态
+    participant Boot as 原版启动器
+    User->>App: RE1 查看 DSH.AGENT
+    Catalog-->>App: RE2 可选的镜像校验摘要
+    App->>Verify: RE3 核对原厂已确认和另一槽镜像
+    alt 摘要与已装镜像一致
+        App-->>User: 显示 Open
+        User->>App: RE4 选择 Open
+        App->>Verify: 重新核对状态与镜像
+        alt 条件仍满足
+            Verify->>Boot: RE5 更新候选 OTA 记录
+            Boot-->>User: RE6 装载本机已有的 DSH 镜像
+        else 镜像变化或升级已选定
+            App-->>User: 留在详情显示失败提示
+        end
+    else 当前没有匹配的镜像
+        App-->>User: RE7 可显式选择下载
+    end

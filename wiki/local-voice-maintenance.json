@@ -1,0 +1,100 @@
+[
+  {
+    "repo": "Jonaaaa/StackChan-LocalAI",
+    "meta": {
+      "archived": false,
+      "pushed_at": "2026-07-16T01:55:23Z",
+      "open_issues_count": 0,
+      "default_branch": "master"
+    },
+    "commits": [
+      {
+        "sha": "3e4f5daa7693cef8937194b17c13c16d31fd1f17",
+        "date": "2026-07-16T01:55:23Z",
+        "title": "Update README.md"
+      },
+      {
+        "sha": "14e24e491fd75b6636bc87274f4c63e040515c30",
+        "date": "2026-07-16T01:52:02Z",
+        "title": "Update LICENSE"
+      }
+    ],
+    "releases": []
+  },
+  {
+    "repo": "rebelthor/warble",
+    "meta": {
+      "archived": false,
+      "pushed_at": "2026-06-16T14:00:13Z",
+      "open_issues_count": 1,
+      "default_branch": "main"
+    },
+    "commits": [
+      {
+        "sha": "ed98ba1dbda047977d2fdee0236d0a94fb63f0a9",
+        "date": "2026-06-16T14:00:10Z",
+        "title": "docs: add a live transcript screenshot to the README"
+      },
+      {
+        "sha": "910357b96696c2722a46e802269e3d1da252a441",
+        "date": "2026-06-16T13:54:33Z",
+        "title": "fix(docker): make whisper and vad images run on Apple Silicon and other arm64"
+      }
+    ],
+    "releases": []
+  },
+  {
+    "repo": "BrettKinny/dotty-stackchan",
+    "meta": {
+      "archived": false,
+      "pushed_at": "2026-11-13T01:28:04Z",
+      "open_issues_count": 21,
+      "default_branch": "main"
+    },
+    "commits": [
+      {
+        "sha": "93cbdb6c8bbc4afd0db2db2a046da621492b630a",
+        "date": "2026-11-13T01:28:02Z",
+        "title": "docs(readme): note the project is on ice over a StackChan power issue"
+      },
+      {
+        "sha": "410eb52e1dff524658ba21f47089d4b0cb8ca3db",
+        "date": "2026-11-09T10:21:52Z",
+        "title": "docs(changelog): catch Unreleased up with #191, #203, #213 and #215 (#216)"
+      }
+    ],
+    "releases": [
+      {
+        "tag": "fw-v1.3.5",
+        "date": "2026-10-29T09:22:02Z"
+      }
+    ]
+  },
+  {
+    "repo": "DrakTheDude/stackchan-local-llm",
+    "meta": {
+      "archived": false,
+      "pushed_at": "2026-10-25T14:07:02Z",
+      "open_issues_count": 0,
+      "default_branch": "main"
+    },
+    "commits": [
+      {
+        "sha": "5dcf31a30284f95d620365683a7ea96412c0406c",
+        "date": "2026-10-25T14:07:02Z",
+        "title": "Merge pull request #1 from DrakTheDude/tools/claimcheck-windows"
+      },
+      {
+        "sha": "131b029f94857e883bad7c210218eb33dc873c2b",
+        "date": "2026-10-25T14:04:29Z",
+        "title": "claimcheck: run proofs through Git Bash on Windows, survive cp1252, needs in the proof's cwd"
+      }
+    ],
+    "releases": [
+      {
+        "tag": "v0.5.0",
+        "date": "2026-09-20T16:34:43Z"
+      }
+    ]
+  }
+]

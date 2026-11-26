@@ -1,0 +1,33 @@
+sequenceDiagram
+    actor User as 使用者
+    participant Menu as StackChan 主菜单
+    participant RTC as 一次性 RTC 请求
+    participant Boot as ESP32‑S3 启动器
+    participant DSH as 独立 DSH.AGENT
+    participant Stock as 原厂启动路径
+    User->>Menu: 点 DSH.AGENT
+    Menu->>Menu: 核对分区、启动器和 OTA 状态
+    alt 入口可用
+        Menu->>RTC: 写入一次性请求
+        Menu->>Boot: 软件重启
+        Boot->>RTC: 读取并清除请求
+        alt 软件重启、已确认 OTA 记录及镜像通过
+            Boot->>DSH: 装载独立 DSH 镜像
+        else 请求或镜像不符合条件
+            Boot->>Stock: 继续原厂 OTA 选槽
+        end
+    else 入口不可用
+        Menu-->>User: 显示原因，Home 回菜单
+    end
+    opt DSH 已打开且使用者点 Home
+        User->>DSH: 底缘上滑，点 Home
+        DSH->>DSH: 等待连接及设备资源释放
+        DSH->>RTC: 写入返回请求
+        DSH->>Boot: 软件重启
+        Boot->>RTC: 读取并清除返回请求
+        Boot->>Boot: 按原厂规则选槽，验镜像，更新 RTC
+        Boot->>RTC: 写入一次返回标记
+        Boot->>Stock: 启动已验证的菜单固件
+        Stock->>RTC: 消费返回标记
+        Stock->>Menu: 本次显示主菜单
+    end

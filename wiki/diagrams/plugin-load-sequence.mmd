@@ -1,0 +1,23 @@
+sequenceDiagram
+    autonumber
+    participant B as 安装包 / Bundle Patch
+    participant L as DSH Loader
+    participant P as StackChan Host
+    participant T as Typert Loader
+    participant R as Registry / Gateway
+    Note over B,R: V15 · 官方 CLI 安装、重启和卸载在隔离 DSH 配置档验证
+    B->>L: Q39 插入 stackchan，按包名加载
+    L->>P: apply：被动服务与原生设置
+    L->>T: Q40 条目激活通知
+    T->>B: 读取 ./typert 生成物
+    B-->>T: Host manifest / codecs
+    T->>R: Q41 注册配对与语音接口
+    Note over P,R: 异步注册就绪后才能调用；未启动语音或设备
+    R->>P: 参数与访问策略检查后的维护调用
+    P->>P: PairingRemote 再检查 owner
+    P-->>R: 实际结果或固定错误
+    L->>P: 禁用条目，等待 dispose
+    L->>T: Q40 条目不再有效
+    T->>R: Q41 撤销贡献；保留 hasSeen
+    R->>R: 后续调用拒绝；不回退旧定义
+    Note over B,R: 隔离卸载后重开 DSH，原测试会话历史仍完整<br/>重新启用走相同加载流程，Client 另行挂载

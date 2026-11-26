@@ -1,0 +1,24 @@
+stateDiagram-v2
+    state "初始化启动器并读取分区表" as Init
+    state "核对布局与复位原因" as Check
+    state "采样 GPIO9" as Gesture
+    state "验证独立镜像和摘要" as CheckAgent
+    state "加载独立 DSH.AGENT" as Agent
+    state "原厂 OTA 选择（隐藏独立槽）" as Stock
+    state "启动原厂选中槽" as Factory
+    state "启动器复位" as Reset
+    [*] --> Init
+    Init --> Reset : 初始化或读表失败
+    Init --> Check : 表已读
+    Check --> Gesture : 布局匹配且上电复位
+    Check --> Stock : 其他布局或复位原因
+    Gesture --> CheckAgent : 低电平持续 600 ms；1.5 s 内松开稳定 40 ms
+    Gesture --> Stock : 按键缺失、提前松开或一直按住
+    CheckAgent --> Agent : 校验通过；绕过 OTA 选择
+    CheckAgent --> Stock : 镜像无效
+    Agent --> Reset : SDK 加载或二次校验失败
+    Agent --> Init : 确认原厂返回，释放资源后软复位
+    Stock --> Factory : SDK 加载有效的原厂镜像
+    Stock --> Reset : 无法选中或加载原厂镜像
+    Reset --> [*]
+    Factory --> [*]

@@ -1,0 +1,7 @@
+{
+  "wiki_root": "wiki",
+  "locked": ["src/**", "firmware/agent/**", "test/**", "scripts/**"],
+  "stamp": {"path": ".local/wiki-context.json", "max_age_hours": 8, "require_page_hashes": true},
+  "stamp_command": "python3 scripts/wiki_context.py prepare --files {file}",
+  "design_first": false
+}

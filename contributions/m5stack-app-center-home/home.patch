@@ -1,0 +1,129 @@
+diff --git a/firmware/main/Kconfig.projbuild b/firmware/main/Kconfig.projbuild
+index c19aa66..fef63af 100644
+--- a/firmware/main/Kconfig.projbuild
++++ b/firmware/main/Kconfig.projbuild
+@@ -11,6 +11,15 @@ config STACKCHAN_SERVER_URL
+ 
+ endmenu
+ 
++config STACKCHAN_APP_CENTER_HOME
++    bool "Accept a one-shot Home request from a transient App Center image"
++    depends on BOOTLOADER_APP_ROLLBACK_ENABLE && ULP_COPROC_ENABLED && ULP_COPROC_RESERVE_MEM = 32
++    default n
++    help
++        Reserve the first 32 bytes of RTC slow memory for the paired App Center
++        Home handoff. Do not load a ULP program into those bytes. A valid request
++        opens the launcher on this boot without changing the AI Agent preference.
++
+ menu "Xiaozhi Assistant"
+ 
+ config OTA_URL
+diff --git a/firmware/main/hal/app_center_home_menu.h b/firmware/main/hal/app_center_home_menu.h
+new file mode 100644
+index 0000000..b21f939
+--- /dev/null
++++ b/firmware/main/hal/app_center_home_menu.h
+@@ -0,0 +1,66 @@
++// SPDX-License-Identifier: MIT
++#pragma once
++
++#include <cstdint>
++#include "esp_ota_ops.h"
++#include "esp_system.h"
++#include "sdkconfig.h"
++#include "soc/soc.h"
++
++#if !CONFIG_IDF_TARGET_ESP32S3 || !CONFIG_ULP_COPROC_ENABLED || CONFIG_ULP_COPROC_RESERVE_MEM != 32
++#error "App Center Home requires the paired 32-byte ESP32-S3 RTC slow memory reservation"
++#endif
++
++namespace sion::app_center {
++
++inline constexpr uint32_t home_request_magic = 0x53484d31; // SHM1
++
++// The linker reserves these first words in both applications. Neither may
++// load a ULP program into the reservation while this handoff is enabled.
++inline volatile uint32_t* HomeRequestWords() {
++    return reinterpret_cast<volatile uint32_t*>(SOC_RTC_DATA_LOW);
++}
++
++inline void OrderHomeRequestWrites() {
++    asm volatile("memw" ::: "memory");
++}
++
++inline void ClearHomeMenuRequest() {
++    HomeRequestWords()[0] = 0;
++    OrderHomeRequestWrites();
++}
++
++inline void RequestHomeMenu(uint32_t confirmed_app_address) {
++    auto* words = HomeRequestWords();
++    ClearHomeMenuRequest();
++    words[1] = confirmed_app_address;
++    words[2] = ~confirmed_app_address;
++    words[3] = ~home_request_magic;
++    OrderHomeRequestWrites();
++    words[0] = home_request_magic;
++    OrderHomeRequestWrites();
++}
++
++// Run once on application entry. Invalidate the ticket even if reset or OTA
++// state rejects it. Consuming a ticket only changes this boot's UI choice.
++inline bool TakeHomeMenuRequest() {
++    const auto* words = HomeRequestWords();
++    const auto marker = words[0];
++    const auto address = words[1];
++    const auto inverted_address = words[2];
++    const auto inverted_marker = words[3];
++    ClearHomeMenuRequest();
++    if (esp_reset_reason() != ESP_RST_SW || marker != home_request_magic ||
++        inverted_marker != ~marker || inverted_address != ~address) return false;
++
++    const auto* running = esp_ota_get_running_partition();
++    const auto* selected = esp_ota_get_boot_partition();
++    if (!running || !selected || running->address != address || selected->address != address) return false;
++    esp_ota_img_states_t state;
++    if (esp_ota_get_state_partition(running, &state) != ESP_OK || state != ESP_OTA_IMG_VALID) return false;
++
++    const auto* previous = esp_ota_get_next_update_partition(running);
++    return previous && esp_ota_get_state_partition(previous, &state) == ESP_OK && state == ESP_OTA_IMG_ABORTED;
++}
++
++} // namespace sion::app_center
+diff --git a/firmware/main/main.cpp b/firmware/main/main.cpp
+index 4c1f20f..1fb6408 100644
+--- a/firmware/main/main.cpp
++++ b/firmware/main/main.cpp
+@@ -10,12 +10,22 @@
+ #include <apps/apps.h>
+ #include <hal/hal.h>
+ #include <hal/hal_toggles.h>
++#if CONFIG_STACKCHAN_APP_CENTER_HOME
++#include <cstdio>
++#include <hal/app_center_home_menu.h>
++#endif
+ 
+ using namespace mooncake;
+ using namespace smooth_ui_toolkit;
+ 
+ extern "C" void app_main(void)
+ {
++#if CONFIG_STACKCHAN_APP_CENTER_HOME
++    const bool return_to_home_menu = sion::app_center::TakeHomeMenuRequest();
++    if (return_to_home_menu) std::puts("SION_APP_CENTER_HOME_V1");
++#else
++    constexpr bool return_to_home_menu = false;
++#endif
+     // Setup logger
+     mclog::set_level(mclog::level_info);
+     mclog::set_time_format(mclog::time_format_unix_milliseconds);
+@@ -27,7 +37,8 @@ extern "C" void app_main(void)
+     ui_hal::on_delay([](uint32_t ms) { GetHAL().delay(ms); });
+     ui_hal::on_get_tick([]() { return GetHAL().millis(); });
+ 
+-    const bool skip_mooncake = GetHAL().getXiaozhiConfig().startAiAgentOnBoot && GetHAL().getWarmRebootTarget() < 0;
++    const bool skip_mooncake = !return_to_home_menu && GetHAL().getXiaozhiConfig().startAiAgentOnBoot &&
++                               GetHAL().getWarmRebootTarget() < 0;
+ 
+     if (!skip_mooncake) {
+         // Install apps

@@ -1,0 +1,38 @@
+{
+  "profile": "independent-settings-v6",
+  "inputs": {
+    "firmware/upstream.lock.json": "413849a09de901b87eb18027b1d21ed14bb6ddc642303d29e7a64fd16311da8a",
+    "scripts/prepare_agent.py": "f97d1aa8005917a964d0348092b6335f8da9af2ea3e77abba5af6c7578ec530d",
+    "scripts/prepare_firmware.py": "653be6546be0469a9ccc637d7d80ddca7d96265f31ffacefe7a7352f75e1d54a",
+    "firmware/agent/audio_engine.h": "003c3f1efc7065a174f66ceabd623ac336034514ef52fa7391b9e463b380af86",
+    "firmware/agent/audio_runtime.cc": "2fe918ac8d0d15f5dcc797b0b8ce55a33468c6cc86150633f012d6da0d931c0f",
+    "firmware/agent/audio_runtime.h": "a96dbf461ed17baaa05df7c17957033442f5383500d522c079df5c5234d8933f",
+    "firmware/agent/component.cmake": "a32952e02bf1bb020b5dd5d59f43a76f5abaef6d108074a4b634f963f63c01a9",
+    "firmware/agent/core_audio_bridge.cc": "98313dd87ba657a7d47601e297c6a3eb637a03b1a524c38ccadcbbed4d30c7dc",
+    "firmware/agent/device_main.cc": "349a179ab38fc507f0809cb3802a1a5d61d2410d79fc7d5570a3ed0739d4bf39",
+    "firmware/agent/preferences.h": "79e3fd2eb80a64bbfe5e44c7fc31544c441037dacf2cd699020817637b533ac2",
+    "firmware/agent/sdkconfig.defaults": "fc53934be9ff2b9273cc27eb774630817bfff774f3db3185109b2f0145f290bb",
+    "firmware/agent/session_lifecycle.h": "6b83c1e9ec9e5f9031d1f9843f3e77ef1c8b1ac9a55fbf8eec6641c9a0945aaa",
+    "firmware/agent/settings_store.cc": "61c53c264f99f369e1fc4f9bd2e9e2cebbbd40df0278c426ac9a413389f896ca",
+    "firmware/agent/storage_guard.cc": "05abf5ff4c6956b18bbf4782bec0e05af5ecec94f99932393e7712a3078702a1",
+    "firmware/agent/storage_guard.h": "806617492aa9c4591f47f81b9d916a286d48aae1e16a18e95818df0c334a476c"
+  },
+  "idf": "fff9895c82d744c7237be8847347bdd1b07c6643",
+  "preparedReceiptSha256": "82fe6680e28ab2cfbdf0beb92d03f2552e845b30865d124491c95f527a980e27",
+  "artifacts": {
+    "stack-chan.bin": {
+      "sha256": "3cad4a9aaffe667536935b78b124d85ccd7f436d6b3ba1db2a92b86ed9384203",
+      "bytes": 2224320
+    },
+    "stack-chan.elf": {
+      "sha256": "1b212bd5a91179fd4675d104ed64c29c54219f110e6c7a3545a5ca8aa5e34735",
+      "bytes": 69066124
+    },
+    "agent-sdkconfig": {
+      "sha256": "7db83e3106c051f32838a1f9865c4b1d827f926c3b1a0525da703dc9515f03a5",
+      "bytes": 153186
+    }
+  },
+  "installable": false,
+  "hardwareValidated": false
+}

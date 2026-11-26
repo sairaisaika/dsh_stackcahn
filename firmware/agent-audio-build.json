@@ -1,0 +1,35 @@
+{
+  "profile": "independent-audio-v4",
+  "inputs": {
+    "firmware/upstream.lock.json": "413849a09de901b87eb18027b1d21ed14bb6ddc642303d29e7a64fd16311da8a",
+    "scripts/prepare_agent.py": "b7660987f41899d1787cf0b590bfedb92723f0ceb67d062a4a1e72e40c685152",
+    "scripts/prepare_firmware.py": "653be6546be0469a9ccc637d7d80ddca7d96265f31ffacefe7a7352f75e1d54a",
+    "firmware/agent/audio_engine.h": "b977980d0992cd8d8c16af743b6f3c8fa92dfc390739b910bc38bc93731e41d2",
+    "firmware/agent/audio_runtime.cc": "17c4eece450671bcf9192aade11bcb9813b3f6dbca5da8a312ef79f5f264ffc4",
+    "firmware/agent/audio_runtime.h": "a96dbf461ed17baaa05df7c17957033442f5383500d522c079df5c5234d8933f",
+    "firmware/agent/component.cmake": "a530e7748680708bee16b1bb981e6b40a90cb5ade23c2e6d896b0d34cfc9df11",
+    "firmware/agent/core_audio_bridge.cc": "4458aa6926188c2cff120d4d0a68d8989680bd9f7af6e86dffed3b7ada44299d",
+    "firmware/agent/device_main.cc": "52f7eb60f480dd5bff8579d5afdf7527523dc261ed1491e4688d6133a6d3a652",
+    "firmware/agent/sdkconfig.defaults": "fc53934be9ff2b9273cc27eb774630817bfff774f3db3185109b2f0145f290bb",
+    "firmware/agent/session_lifecycle.h": "6b83c1e9ec9e5f9031d1f9843f3e77ef1c8b1ac9a55fbf8eec6641c9a0945aaa",
+    "firmware/agent/storage_guard.cc": "4170ac6ab6c8c9bb72cea430f3e5a627a0e190de1fc3167678cc8e6fd1d2e0b0"
+  },
+  "idf": "fff9895c82d744c7237be8847347bdd1b07c6643",
+  "preparedReceiptSha256": "674385da28c4f86b86d1b9d756be84a194eb6035f5167c00928644b1e9d11739",
+  "artifacts": {
+    "stack-chan.bin": {
+      "sha256": "cbaf83ea245fc40d5b4bab60e6bd8f651861a3b39832234d7e22cea28510695a",
+      "bytes": 2219904
+    },
+    "stack-chan.elf": {
+      "sha256": "078f5329e7c013d40885ddbf74306c7a71add83c25dbb56c6e1243176522431e",
+      "bytes": 69018820
+    },
+    "agent-sdkconfig": {
+      "sha256": "7db83e3106c051f32838a1f9865c4b1d827f926c3b1a0525da703dc9515f03a5",
+      "bytes": 153186
+    }
+  },
+  "installable": false,
+  "hardwareValidated": false
+}

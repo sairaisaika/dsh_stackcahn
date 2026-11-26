@@ -1,0 +1,42 @@
+sequenceDiagram
+    autonumber
+    actor O as 操作者
+    participant M as 安装与恢复执行器
+    participant R as Sion ROM / RAM stub
+    participant F as 原厂助手
+    Note over O,F: V44 · v35 分段恢复已在 QEMU 验证至原厂入口。实体写入待批准。
+    O->>M: 选择原厂双备份、现有安装包和操作
+    opt 恢复
+        O->>M: 另提交故障后或恢复前的双备份
+        M->>M: 对照原厂基线与三段精确写入窗口
+        break 发现未评审区域发生变化
+            M-->>O: 报告差异区域，停止恢复预览
+        end
+    end
+    M-->>O: 离线输出确切地址、摘要和计划 ID
+    opt 离线扇区预览
+        O->>M: --scope
+        M-->>O: 分区交集与已匹配阶段；沿用同一 ID
+    end
+    opt 同意该计划并已在 ROM 下载模式
+        O->>M: 指定串口、计划 ID 和新的本地记录名
+        M->>R: 单连接核对身份、安全和容量
+        M->>R: 读取整片 16 MiB 并核对起始快照
+        alt 身份或初始内容不同
+            M-->>O: 停止并记录差异，需重新审查
+        else 起始状态符合计划
+            Note over M,R: 安装为应用→追加表→选择器；恢复为原表→原启动器
+            loop 按审查顺序，已匹配步骤可跳过
+                M->>M: 持久化本阶段开始
+                M->>R: 写一个文件的完整扇区
+                R-->>M: 读回整片 16 MiB
+                M->>M: 精确比较目标和所有其余字节
+            end
+            alt 任一写入或回读失败
+                M-->>O: 保留现场与日志，重新采集后单独审查恢复
+            else 全部匹配
+                M-->>O: 完成核验，关闭连接，等待正常启动
+                O->>F: 正常开机并检查语音与绑定
+            end
+        end
+    end

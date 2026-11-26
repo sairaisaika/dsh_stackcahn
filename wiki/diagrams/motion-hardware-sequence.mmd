@@ -1,0 +1,58 @@
+sequenceDiagram
+    autonumber
+    participant M as app_main / DeviceEffects
+    participant E as MotionEngine
+    participant W as 动作 worker
+    participant H as EspMotionPort
+    participant S as ScsMotionPort / EspServoUart
+    participant P as EspServoPower
+    Note over M,P: V41 · 组合与任务已接；许可默认关闭，动作命令与设置仍待接；无真机验收
+    M->>W: StartMotionWorker（幂等，创建失败可重试）
+    W->>E: Pump；Idle 时无硬件调用
+    Note over E,H: 下列 Begin 由测试注入；生产认证命令/许可消费者仍待接
+    E->>E: AllowMotion + Begin → Opening
+    W->>E: Pump(now)
+    E->>H: Open()
+    H->>S: UART.Prepare：只读标定，独占串口，无发送
+    S-->>H: 成功 / 失败
+    opt Prepare 成功且获得板级 bus
+        H->>P: Open：准备并保持控制脚低
+        P-->>H: 成功 / 失败
+        opt 电源准备成功
+            H->>P: Enable：写高、等待、读回
+            P-->>H: 成功 / 部分失败
+            opt Enable 成功
+                H->>S: Scs.Open → UART.Open 消费已准备资源
+                S->>P: Ready：实际读回，不再次 Enable
+                S-->>H: 双轴禁用、限值/反馈检查成功或失败
+            end
+        end
+    end
+    H-->>E: Open 成功 / 失败；失败也必须 Release
+    Note over E,P: Stop 可在任何 I/O 中到达；已选中的一次调用可结束，旧票据不得进入 Move/结果
+    opt 打开成功且票据仍有效
+        W->>E: 后续 Pump
+        E->>H: Move / Poll
+        H->>S: 实际目标命令与反馈
+        S-->>E: 经 Port 返回接受/观测/错误，不等于机械保证
+    end
+    M->>E: Stop(newEpoch)：撤销票据/待取结果
+    W->>E: Pump → Releasing
+    E->>H: Release()
+    opt 已尝试 Scs.Open
+        H->>S: Release：双轴禁用读回，再关闭 UART
+        S-->>H: Done / Failed + DrivesDisabled
+    end
+    alt 扭矩关闭无法确认
+        H->>H: 锁存 stop_unknown；拒绝新 Open
+        H->>P: 尝试 Close：拉低并释放
+        H->>S: UART.Close：继续尝试资源清理
+        H-->>E: Failed，即使资源现已清理也不假报确认停止
+    else 扭矩已确认关闭 / 未进入舵机打开
+        H->>S: 必要时重试 UART 清理，不重复发送命令
+        H->>P: Close；另一个清理失败也要尝试
+        H-->>E: 全部确认才 Done；否则 Failed，允许显式重试
+    end
+    M->>E: Stopped(newEpoch)
+    E-->>M: Pending / Failed / Done
+    Note over M,E: Home 等待动作、音频、相机、网络和配对维护；故障不显示已返回

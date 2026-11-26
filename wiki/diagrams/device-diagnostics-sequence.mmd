@@ -1,0 +1,25 @@
+sequenceDiagram
+    participant S as Sion 各任务
+    participant R as Sion RTC 诊断缓冲
+    participant M as Mac USB 与 DSH
+    participant L as Mac 私有诊断文件
+    participant O as 现场诊断工具
+    S->>R: 启动、任务换挡和最后执行位置
+    M->>L: 串口、认证、收音和会话阶段
+    loop 正常工作
+        S->>R: 只更新执行位置，有变化才记事件
+        M->>L: 每约 5 秒汇总输入队列与延迟
+    end
+    alt 断线或任务不再推进
+        M->>L: 首个故障、链路结束和释放结果
+        Note over S,R: 设备缓冲独立于语音串口发送
+        O->>R: 经获准的 JTAG 暂停，读取诊断区与任务栈
+        R-->>O: 已完成记录，拒绝未提交条目
+        O->>S: 恢复 CPU 运行
+    else 有控制的 Stop
+        S->>R: 记录资源释放阶段
+        M->>L: 记录设备 Stop 回执
+    end
+    O->>L: 读本轮 Mac 诊断
+    L-->>O: 会话内阶段及计数
+    Note over R,O: 保留独立时钟。先匹配同一次操作，再比较各自耗时

@@ -1,0 +1,18 @@
+flowchart TD
+    source[本机私有输入与现有中继 TLS 文件]
+    validate[校验地址、独立配对 ID、热点字段]
+    tls[RR21 内存 TLS 校验域名、CA 链和服务器私钥]
+    credentials[生成房间、两端角色凭据和设备配置版本]
+    host[RR22 profile 中的 Mac 配置]
+    device[RR23 profile 中的 Sion 配置]
+    relay[RR24 relay 中的配置、证书和服务器私钥]
+    runMac[放入 DSH 配置档，由语音服务读取]
+    runDevice[放入 DSH 配置档，经 Allow USB 写入 Sion]
+    runRelay[操作者部署中继，服务端用角色摘要鉴权]
+    fail[拒绝生成，保留已有目录]
+    source --> validate --> tls --> credentials
+    validate -. 字段错误 .-> fail
+    tls -. 校验失败 .-> fail
+    credentials --> host --> runMac
+    credentials --> device --> runDevice
+    credentials --> relay --> runRelay

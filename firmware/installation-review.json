@@ -1,0 +1,44 @@
+{
+  "date": "2026-11-18",
+  "candidateSha256": "84614080e241d4b5b192acd83fd3a321f766fe47b52d9018ee36ed9916fc1b99",
+  "status": "blocked-not-installable",
+  "blockers": [
+    {
+      "id": "preserve-nvs",
+      "source": "firmware/main/hal/hal.cpp::Hal::init",
+      "finding": "NVS init fails without erase; linker wrappers force original identity/service namespaces read-only, including managed-component callers; factory reset and unbind are blocked.",
+      "required": "Validate actual NVS behavior, preserved keys and pairing capacity on hardware after all deployment gates pass.",
+      "status": "implemented-host-tested-hardware-pending"
+    },
+    {
+      "id": "official-auth",
+      "source": "firmware/main/hal/utils/secret_logic/secret_logic.cpp",
+      "finding": "Official maintainer confirmed in issue 134 that production authentication is not published and no SDKCONFIG enables it. AI.Agent uses a separate Xiaozhi connection; StackChan World/Avatar compatibility is not supplied.",
+      "required": "Supported production auth component or explicitly reviewed design retaining the original firmware for official integration. Current candidate must not be installed as a full replacement.",
+      "status": "blocked-upstream"
+    },
+    {
+      "id": "shared-assets",
+      "source": "xiaozhi-esp32/main/application.cc::CheckAssetsVersion; main/assets.cc",
+      "finding": "Startup applies existing resources only; Assets::Download returns before any writes. Original assets will not be included in an installation write list.",
+      "required": "Verify old model/font load and voice on hardware; same asset format does not establish model ABI/runtime compatibility.",
+      "status": "implemented-host-build-tested-hardware-pending"
+    },
+    {
+      "id": "boot-confirmation",
+      "source": "main/hal/hal.cpp; main/hal/hal_app_setup.cpp; xiaozhi-esp32/main/application.cc::CheckNewVersion",
+      "finding": "Automatic validity confirmation is blocked. Pending trial has a ten-minute independent timer, explicit USB boot nonce/image/physical-observation confirmation, readback and restricted pairing until reboot.",
+      "required": "Validate actual deployed bootloader rollback, all task/clock/error cases, power interruption and observed voice/App. No automatic rollback guarantee before hardware test.",
+      "status": "implemented-host-tested-hardware-pending"
+    },
+    {
+      "id": "shared-service-config",
+      "source": "xiaozhi-esp32/main/ota.cc::CheckVersion; main/hal/hal_ota.cpp; main/apps/app_setup",
+      "finding": "Startup reads saved MQTT/WebSocket configuration without requesting OTA/activation/refresh. Settings and NVS wrappers protect original namespaces; all reviewed firmware/App Center update paths return before writes.",
+      "required": "Cached credential validity/expiry must be characterized. Supported refresh without breaking original integration remains unresolved; this conservative build does not claim complete original-service compatibility.",
+      "status": "preservation-implemented-refresh-unresolved"
+    }
+  ],
+  "revision": "preservation-trial-v3",
+  "upstreamEvidence": "https://github.com/m5stack/StackChan/issues/134"
+}

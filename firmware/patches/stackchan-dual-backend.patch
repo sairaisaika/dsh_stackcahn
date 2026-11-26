@@ -1,0 +1,46 @@
+diff --git a/main/CMakeLists.txt b/main/CMakeLists.txt
+index d118f7e..5524616 100644
+--- a/main/CMakeLists.txt
++++ b/main/CMakeLists.txt
+@@ -29,7 +29,11 @@ set(STACK_CHAN_INCLUDE_DIRS
+ list(APPEND STACK_CHAN_SOURCES main.cpp)
+ 
+ # Define source files
+-set(SOURCES "audio/audio_codec.cc"
++set(SOURCES "sion/backend_runtime.cc"
++            "sion/pairing_store.cc"
++            "sion/pairing_usb.cc"
++            "sion/paired_tls.cc"
++            "audio/audio_codec.cc"
+             "audio/audio_service.cc"
+             "audio/demuxer/ogg_demuxer.cc"
+             "audio/codecs/no_audio_codec.cc"
+@@ -307,6 +311,8 @@ idf_component_register(SRCS ${SOURCES}
+                         esp_pm
+                         esp_psram
+                         esp_netif
++                        esp_https_server
++                        esp_driver_usb_serial_jtag
+                         esp_http_client
+                         mbedtls
+                         espressif__cjson
+diff --git a/main/Kconfig.projbuild b/main/Kconfig.projbuild
+index c19aa66..592f973 100644
+--- a/main/Kconfig.projbuild
++++ b/main/Kconfig.projbuild
+@@ -1,3 +1,15 @@
++menu "Sion dual assistant backend"
++config SION_DUAL_BACKEND
++    bool "Enable opt-in paired local backend"
++    depends on IDF_TARGET_ESP32S3 && BOARD_TYPE_M5STACK_STACK_CHAN
++    default n
++    help
++        Adds paired HTTPS control on port 8765 and a local WSS audio backend.
++        One-time USB pairing stores only the sion_pair namespace.
++        Never replaces factory NVS, activation or OTA configuration.
++        Network control is disabled until a valid pairing is installed.
++endmenu
++
+ menu "StackChan Server"
+ 
+ config STACKCHAN_SERVER_URL

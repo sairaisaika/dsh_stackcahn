@@ -1,0 +1,32 @@
+sequenceDiagram
+    participant Mac as Mac 与现场操作者
+    participant Rom as 底座 USB / ESP32-S3 ROM
+    participant Boot as 原厂启动器
+    participant Agent as DSH 非活跃槽
+    participant Stock as 已确认原厂槽
+    Mac->>Rom: ST1 只读双份整片，绑定设备与本次方案
+    Note left of Rom: 历史双读、确切候选及演练证据<br/>生成这次暂存和选槽的预期摘要
+    Note over Mac,Rom: 范围和恢复经确认才进入写入阶段
+    Mac->>Rom: ST2 暂存候选，整片读回确认
+    alt 暂存失败或未选择候选
+        Boot->>Stock: 已确认的原厂仍是启动目标
+    else 暂存读回匹配
+        Mac->>Rom: ST3 写候选 NEW 记录，整片读回确认
+        Boot->>Agent: ST4 首次启动，候选进入待确认
+        opt 独立 USB 有应答
+            Agent->>Mac: ST5 独立配对，实测 USB 语音与控件
+        end
+        alt 验证 Home 自动返回
+            Agent->>Boot: ST6 释放资源后请求普通重启
+            Boot->>Stock: 候选转 ABORTED，返回原厂版本
+        else 先恢复再运行原厂
+            Mac->>Rom: ST6 用底座 USB 进入下载模式
+            Note over Mac,Rom: 原厂网络设置保留<br/>恢复前先核对实际启动状态
+        end
+    end
+    Mac->>Rom: ST7 读回两份整片，按同机备份审查撤销范围
+    opt 候选仍处于 NEW 或 PENDING_VERIFY
+        Mac->>Rom: ST8a 先恢复对侧记录，再读回整片
+    end
+    Rom-->>Mac: ST8b 恢复其余实际差异并读回，保留测试配对
+    Stock-->>Mac: ST9 原厂唤醒、语音与既有手机绑定验收

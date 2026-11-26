@@ -1,0 +1,10 @@
+{
+  "repository": "https://github.com/sairaisaika/projectWikiSkill",
+  "revision": "9406d16c15c24079e71ac546170ab95b03c2ac6f",
+  "pr": "pre-reset PR 73 (removed in the 2026-11-21 history reset; same content as revision above)",
+  "files": {
+    "project-wiki/scripts/edit_gate.py": "ddfb1a0098829c5adf100f1114074b758f8704ca865860690fa3a4edab3f8b09",
+    "LICENSE": "a83d990258e840f93de878268d6e8a5a9d31e24095ceede055e5f0b65492b4e9"
+  },
+  "hostAutomaticActivation": false
+}

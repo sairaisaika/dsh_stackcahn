@@ -1,0 +1,37 @@
+sequenceDiagram
+    autonumber
+    participant R as VoiceRuntime
+    participant M as ManagedPairing / PairingHost
+    participant P as Python identity helper
+    participant J as Journal / OS flock
+    participant T as Transport / Voice / Bridge
+    Note over R,T: V24 · 私有凭据只在 Host；无串口访问或设备写入
+    R->>M: acquireIdentity(signal)
+    M->>P: L26 固定 helper 与可信目录
+    P->>J: locked → load → active bundle
+    alt pending / 没有已确认 active / 锁已占用
+      J-->>P: 拒绝
+      P-->>M: 固定错误；退出
+      M-->>R: 不建立 listener
+    else 已确认身份且持锁
+      P-->>M: ready + 私有身份（有界管道）
+      M-->>R: L27 lease；helper 持锁等待 EOF
+      R->>T: L28 构造并 listen；显式 connect 才激活语音
+      Note over M,J: 本进程维护拒绝；独立配对进程 flock 也失败
+      alt 正常 Shutdown / L29 插件退出
+        R->>T: bridge.stop；等待确认
+        T-->>R: idle 或未知释放 / 异常
+        R->>T: transport.close；voice.dispose
+        T-->>R: Host 资源清理结果
+        R->>M: identity.release
+        M->>P: stdin EOF（超时 TERM → KILL）
+        P->>J: 退出锁作用域
+        P-->>M: 实际 child close
+        M-->>R: 正常退出或明确失败
+      else helper 意外退出
+        P-->>M: child close：unexpected
+        M-->>R: L27 closed 通知
+        R->>T: 停止桥、关闭 listener 与本地语音
+        Note over R,T: 保留 identity_lost / 清理错误；不伪造设备 idle
+      end
+    end

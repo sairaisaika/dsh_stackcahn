@@ -1,0 +1,14 @@
+{
+  "version": 1,
+  "voices": [
+    {
+      "voice": "zf_038",
+      "language": "zh",
+      "path": "kokoro/voices/zf_038.pt",
+      "url": "https://huggingface.co/hexgrad/Kokoro-82M-v1.1-zh/resolve/01e7505bd6a7a2ac4975463114c3a7650a9f7218/voices/zf_038.pt",
+      "bytes": 523331,
+      "sha256": "067843a37247588b5e55de0bbc2e1c9e2f4cb4b8fc89ee6aff800e5bf7d1f038",
+      "license": "Apache-2.0"
+    }
+  ]
+}

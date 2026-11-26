@@ -1,0 +1,23 @@
+{
+  "checked": "2026-11-18",
+  "dshVersion": "0.2.1-rc.3",
+  "dshSource": "installed application package; extracted files ignored under work/",
+  "officialFirmwareCommit": "28b9f0c8bd6acd81cb3c70f1a93c3e373b39d400",
+  "localDeviceFirmwareVersion": "v1.6.2 (readback + boot log verified; user confirmed voice and binding)",
+  "liveDshAttached": false,
+  "liveVoiceHandoffTested": false,
+  "xiaozhiFirmwareTag": "v2.5.2",
+  "xiaozhiFirmwareCommit": "49b4380b3faa0ceadd28a3e78aaf0f311c46c57e",
+  "xiaozhiServerCommit": "61a8c04477a1334447679e319dccaad3db3e43dc",
+  "deviceHandoffDecision": "implemented-build-tested-hardware-unverified",
+  "idfVersion": "v6.1",
+  "officialBaselineBuildPassed": true,
+  "dualBackendBuildPassed": true,
+  "pairingImplementation": "usb-two-slot-nvs-https-wss-built-not-installed",
+  "deviceControlProtocol": 2,
+  "hostModeClient": "tested-not-live",
+  "nextDeviceStep": "blocked: resolve official App authentication and review concrete installation before any flash",
+  "preservationBuild": "preservation-trial-v3-built-not-flashed",
+  "officialAuthentication": "unpublished production component, confirmed upstream issue #134 on 2026-11-12",
+  "preservationHardwareTested": false
+}
